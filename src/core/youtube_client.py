@@ -2,10 +2,14 @@ import os
 from googleapiclient.discovery import build
 from typing import Dict, Optional
 from datetime import datetime
+from dotenv import load_dotenv
 
 class YouTubeClient:
     def __init__(self):
-        self.api_key = ""  # API key temporal
+        load_dotenv()
+        self.api_key = os.getenv('YOUTUBE_API_KEY')
+        if not self.api_key:
+            raise ValueError("YOUTUBE_API_KEY no está configurada en las variables de entorno")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
 
     def get_live_metrics(self, video_id: str) -> dict:
