@@ -2,6 +2,7 @@ services:
   - type: web
     name: stream-views
     env: python
+    rootDir: APP
     buildCommand: pip install -r requirements.txt
     startCommand: python src/main.py
     envVars:
