@@ -1,11 +1,9 @@
 from nicegui import ui # type: ignore
 from src.services.stream_service import StreamService
 from src.core.logger import logger
-from src.core.monitoring import system_monitor
 import asyncio
 from datetime import datetime
 from collections import defaultdict
-import psutil
 
 # CSS global para diálogos anchos
 ui.add_head_html('<style>.q-dialog__inner--minimized, .q-dialog__inner { max-width: 90vw !important; }</style>')
@@ -25,7 +23,6 @@ class StreamViewerApp:
         stream_cards (dict): Diccionario que mapea IDs de video a sus tarjetas UI
         historical_data (defaultdict): Datos históricos de visualizadores por stream
         main_chart: Gráfico principal para visualizar tendencias
-        metrics_chart: Gráfico para visualizar métricas del sistema
     """
 
     def __init__(self):
@@ -47,25 +44,15 @@ class StreamViewerApp:
             raise
 
     def setup_ui(self):
-        """
-        Configura la interfaz de usuario de la aplicación.
-        """
-        logger.info("Iniciando interfaz de usuario")
+        """Configura la interfaz de usuario principal."""
         try:
-            # Configurar la página principal
-            with ui.column().classes('w-full p-4 gap-4'):
-                # Título y botón de agregar stream
-                with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Stream Views').classes('text-2xl font-bold')
-                    with ui.dialog() as dialog, ui.card():
-                        ui.label('Agregar Stream').classes('text-xl font-bold mb-4')
-                        video_id = ui.input('ID del Video de YouTube').classes('w-full')
-                        ui.button('Agregar', on_click=lambda: self.add_stream(video_id.value)).classes('mt-4')
-                    ui.button('Agregar Stream', on_click=dialog.open).classes('bg-blue-500 text-white')
+            with ui.column().classes('w-full max-w-7xl mx-auto p-4'):
+                # Título
+                ui.label('Stream Views').classes('text-3xl font-bold mb-8')
                 
                 # Gráfico principal
                 self.main_chart = ui.echart({
-                    'title': {'text': 'Evolución de Visualizadores'},
+                    'title': {'text': 'Visualizadores en Tiempo Real'},
                     'tooltip': {'trigger': 'axis'},
                     'legend': {'data': [], 'bottom': 0},
                     'xAxis': {
@@ -78,47 +65,16 @@ class StreamViewerApp:
                     'yAxis': {
                         'type': 'value',
                         'name': 'Visualizadores',
-                        'nameLocation': 'middle',
-                        'nameGap': 40
+                        'position': 'left'
                     },
                     'series': []
-                }).classes('w-full h-64')
-                
-                # Gráfico de métricas del sistema
-                self.metrics_chart = ui.echart({
-                    'title': {'text': 'Métricas del Sistema'},
-                    'tooltip': {'trigger': 'axis'},
-                    'legend': {'data': [], 'bottom': 0},
-                    'xAxis': {
-                        'type': 'category',
-                        'data': [],
-                        'name': 'Hora',
-                        'nameLocation': 'middle',
-                        'nameGap': 30
-                    },
-                    'yAxis': [
-                        {
-                            'type': 'value',
-                            'name': 'Porcentaje',
-                            'min': 0,
-                            'max': 100,
-                            'position': 'left'
-                        },
-                        {
-                            'type': 'value',
-                            'name': 'Cantidad',
-                            'position': 'right'
-                        }
-                    ],
-                    'series': []
-                }).classes('w-full h-64')
+                }).classes('w-full h-96')
                 
                 # Contenedor de tarjetas de streams
                 self.streams_container = ui.column().classes('w-full gap-4')
             
             # Configurar actualizaciones periódicas
             ui.timer(10.0, self.update_streams)
-            ui.timer(1.0, self.update_metrics_chart)
             
             logger.info("Interfaz de usuario iniciada correctamente")
             
@@ -316,76 +272,6 @@ class StreamViewerApp:
             
         except Exception as e:
             logger.error(f"Error al actualizar streams: {str(e)}")
-
-    def update_metrics_chart(self):
-        """Actualiza el gráfico de métricas del sistema."""
-        try:
-            # Obtener métricas del sistema
-            cpu_percent = psutil.cpu_percent()
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-            
-            # Obtener timestamp actual
-            current_time = datetime.now().strftime('%H:%M:%S')
-            
-            # Actualizar datos del gráfico
-            if not hasattr(self, '_metrics_data'):
-                self._metrics_data = {
-                    'times': [],
-                    'cpu': [],
-                    'memory': [],
-                    'disk': [],
-                    'streams': []
-                }
-            
-            # Mantener solo los últimos 60 puntos
-            max_points = 60
-            self._metrics_data['times'].append(current_time)
-            self._metrics_data['cpu'].append(cpu_percent)
-            self._metrics_data['memory'].append(memory.percent)
-            self._metrics_data['disk'].append(disk.percent)
-            self._metrics_data['streams'].append(len(self.stream_service.get_all_streams()))
-            
-            if len(self._metrics_data['times']) > max_points:
-                self._metrics_data['times'] = self._metrics_data['times'][-max_points:]
-                self._metrics_data['cpu'] = self._metrics_data['cpu'][-max_points:]
-                self._metrics_data['memory'] = self._metrics_data['memory'][-max_points:]
-                self._metrics_data['disk'] = self._metrics_data['disk'][-max_points:]
-                self._metrics_data['streams'] = self._metrics_data['streams'][-max_points:]
-            
-            # Actualizar gráfico
-            self.metrics_chart.options['xAxis']['data'] = self._metrics_data['times']
-            self.metrics_chart.options['series'] = [
-                {
-                    'name': 'CPU',
-                    'type': 'line',
-                    'data': self._metrics_data['cpu'],
-                    'yAxisIndex': 0
-                },
-                {
-                    'name': 'Memoria',
-                    'type': 'line',
-                    'data': self._metrics_data['memory'],
-                    'yAxisIndex': 0
-                },
-                {
-                    'name': 'Disco',
-                    'type': 'line',
-                    'data': self._metrics_data['disk'],
-                    'yAxisIndex': 0
-                },
-                {
-                    'name': 'Streams',
-                    'type': 'line',
-                    'data': self._metrics_data['streams'],
-                    'yAxisIndex': 1
-                }
-            ]
-            self.metrics_chart.options['legend']['data'] = ['CPU', 'Memoria', 'Disco', 'Streams']
-            self.metrics_chart.update()
-            
-        except Exception as e:
-            logger.error(f"Error al actualizar métricas: {str(e)}")
 
     def add_stream(self, video_id: str):
         """
