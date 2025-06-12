@@ -3,14 +3,26 @@ services:
     name: stream-views
     env: python
     buildCommand: |
-      cd /opt/render/project/src
+      echo "=== Current Directory ==="
+      pwd
+      echo "=== Directory Contents ==="
+      ls -la
+      echo "=== Installing Requirements ==="
       pip install -r requirements.txt
     startCommand: |
-      cd /opt/render/project/src
+      echo "=== Starting Application ==="
+      echo "=== Current Directory ==="
+      pwd
+      echo "=== Directory Contents ==="
       ls -la
-      cd src
-      ls -la
-      python3 main.py
+      echo "=== Python Version ==="
+      python --version
+      echo "=== Python Path ==="
+      python -c "import sys; print('\n'.join(sys.path))"
+      echo "=== Trying to run main.py ==="
+      find . -name "main.py"
+      echo "=== Running main.py ==="
+      python src/main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
