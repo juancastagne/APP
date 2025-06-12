@@ -30,15 +30,101 @@ class StreamViewerApp:
 
     def __init__(self):
         """
-        Inicializa la aplicación con los servicios necesarios y estructuras de datos.
+        Inicializa la aplicación Stream Views.
+        Configura los servicios necesarios y la interfaz de usuario.
         """
         logger.info("Iniciando aplicación Stream Views")
-        self.stream_service = StreamService()
-        self.stream_cards = {}
-        self.historical_data = defaultdict(list)
-        self.main_chart = None
-        self.metrics_chart = None
-        logger.debug("Aplicación inicializada correctamente")
+        try:
+            # Inicializar servicios
+            self.stream_service = StreamService()
+            
+            # Configurar la interfaz
+            self.setup_ui()
+            logger.info("Aplicación inicializada correctamente")
+            
+        except Exception as e:
+            logger.error(f"Error al inicializar la aplicación: {str(e)}")
+            raise
+
+    def setup_ui(self):
+        """
+        Configura la interfaz de usuario de la aplicación.
+        """
+        logger.info("Iniciando interfaz de usuario")
+        try:
+            # Configurar la página principal
+            with ui.column().classes('w-full p-4 gap-4'):
+                # Título y botón de agregar stream
+                with ui.row().classes('w-full justify-between items-center'):
+                    ui.label('Stream Views').classes('text-2xl font-bold')
+                    with ui.dialog() as dialog, ui.card():
+                        ui.label('Agregar Stream').classes('text-xl font-bold mb-4')
+                        video_id = ui.input('ID del Video de YouTube').classes('w-full')
+                        ui.button('Agregar', on_click=lambda: self.add_stream(video_id.value)).classes('mt-4')
+                    ui.button('Agregar Stream', on_click=dialog.open).classes('bg-blue-500 text-white')
+                
+                # Gráfico principal
+                self.main_chart = ui.echart({
+                    'title': {'text': 'Evolución de Visualizadores'},
+                    'tooltip': {'trigger': 'axis'},
+                    'legend': {'data': [], 'bottom': 0},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': [],
+                        'name': 'Hora',
+                        'nameLocation': 'middle',
+                        'nameGap': 30
+                    },
+                    'yAxis': {
+                        'type': 'value',
+                        'name': 'Visualizadores',
+                        'nameLocation': 'middle',
+                        'nameGap': 40
+                    },
+                    'series': []
+                }).classes('w-full h-64')
+                
+                # Gráfico de métricas del sistema
+                self.metrics_chart = ui.echart({
+                    'title': {'text': 'Métricas del Sistema'},
+                    'tooltip': {'trigger': 'axis'},
+                    'legend': {'data': [], 'bottom': 0},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': [],
+                        'name': 'Hora',
+                        'nameLocation': 'middle',
+                        'nameGap': 30
+                    },
+                    'yAxis': [
+                        {
+                            'type': 'value',
+                            'name': 'Porcentaje',
+                            'min': 0,
+                            'max': 100,
+                            'position': 'left'
+                        },
+                        {
+                            'type': 'value',
+                            'name': 'Cantidad',
+                            'position': 'right'
+                        }
+                    ],
+                    'series': []
+                }).classes('w-full h-64')
+                
+                # Contenedor de tarjetas de streams
+                self.streams_container = ui.column().classes('w-full gap-4')
+            
+            # Configurar actualizaciones periódicas
+            ui.timer(10.0, self.update_streams)
+            ui.timer(1.0, self.update_metrics_chart)
+            
+            logger.info("Interfaz de usuario iniciada correctamente")
+            
+        except Exception as e:
+            logger.error(f"Error al iniciar la interfaz de usuario: {str(e)}")
+            raise
 
     def create_stream_card(self, stream):
         """
@@ -300,91 +386,6 @@ class StreamViewerApp:
             
         except Exception as e:
             logger.error(f"Error al actualizar métricas: {str(e)}")
-
-    def start(self, port: int = 8080):
-        """
-        Inicia la aplicación y configura la interfaz de usuario.
-        
-        Args:
-            port (int): Puerto en el que se ejecutará la aplicación
-        """
-        logger.info("Iniciando interfaz de usuario")
-        try:
-            # Configurar la página principal
-            with ui.column().classes('w-full p-4 gap-4'):
-                # Título y botón de agregar stream
-                with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Stream Views').classes('text-2xl font-bold')
-                    with ui.dialog() as dialog, ui.card():
-                        ui.label('Agregar Stream').classes('text-xl font-bold mb-4')
-                        video_id = ui.input('ID del Video de YouTube').classes('w-full')
-                        ui.button('Agregar', on_click=lambda: self.add_stream(video_id.value)).classes('mt-4')
-                    ui.button('Agregar Stream', on_click=dialog.open).classes('bg-blue-500 text-white')
-                
-                # Gráfico principal
-                self.main_chart = ui.echart({
-                    'title': {'text': 'Evolución de Visualizadores'},
-                    'tooltip': {'trigger': 'axis'},
-                    'legend': {'data': [], 'bottom': 0},
-                    'xAxis': {
-                        'type': 'category',
-                        'data': [],
-                        'name': 'Hora',
-                        'nameLocation': 'middle',
-                        'nameGap': 30
-                    },
-                    'yAxis': {
-                        'type': 'value',
-                        'name': 'Visualizadores',
-                        'nameLocation': 'middle',
-                        'nameGap': 40
-                    },
-                    'series': []
-                }).classes('w-full h-64')
-                
-                # Gráfico de métricas del sistema
-                self.metrics_chart = ui.echart({
-                    'title': {'text': 'Métricas del Sistema'},
-                    'tooltip': {'trigger': 'axis'},
-                    'legend': {'data': [], 'bottom': 0},
-                    'xAxis': {
-                        'type': 'category',
-                        'data': [],
-                        'name': 'Hora',
-                        'nameLocation': 'middle',
-                        'nameGap': 30
-                    },
-                    'yAxis': [
-                        {
-                            'type': 'value',
-                            'name': 'Porcentaje',
-                            'min': 0,
-                            'max': 100,
-                            'position': 'left'
-                        },
-                        {
-                            'type': 'value',
-                            'name': 'Cantidad',
-                            'position': 'right'
-                        }
-                    ],
-                    'series': []
-                }).classes('w-full h-64')
-                
-                # Contenedor de tarjetas de streams
-                self.streams_container = ui.column().classes('w-full gap-4')
-            
-            # Configurar actualizaciones periódicas
-            ui.timer(10.0, self.update_streams)
-            ui.timer(1.0, self.update_metrics_chart)
-            
-            # Iniciar la aplicación
-            ui.run(port=port)
-            logger.info("Interfaz de usuario iniciada correctamente")
-            
-        except Exception as e:
-            logger.error(f"Error al iniciar la interfaz de usuario: {str(e)}")
-            raise
 
     def add_stream(self, video_id: str):
         """
