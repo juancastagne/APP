@@ -9,7 +9,7 @@ services:
       ls -la
       echo "Installing requirements..."
       pip install -r requirements.txt
-    startCommand: python wsgi.py
+    startCommand: cd APP && python wsgi.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
