@@ -5,6 +5,7 @@ from src.core.monitoring import system_monitor
 import asyncio
 from datetime import datetime
 from collections import defaultdict
+import psutil
 
 # CSS global para diálogos anchos
 ui.add_head_html('<style>.q-dialog__inner--minimized, .q-dialog__inner { max-width: 90vw !important; }</style>')
@@ -187,207 +188,118 @@ class StreamViewerApp:
         
         dialog.open()
 
-    def update_chart(self):
-        """
-        Actualiza el gráfico principal con los datos históricos de todos los streams.
-        El gráfico muestra la evolución de visualizadores a lo largo del tiempo.
-        """
-        if not self.main_chart:
-            return
-
-        # Configuración inicial del gráfico
-        chart_options = {
-            'title': {
-                'text': 'Evolución de Visualizadores',
-                'left': 'center'
-            },
-            'tooltip': {
-                'trigger': 'axis'
-            },
-            'legend': {
-                'data': [],
-                'bottom': 0
-            },
-            'xAxis': {
-                'type': 'category',
-                'data': [],
-                'name': 'Hora',
-                'nameLocation': 'middle',
-                'nameGap': 30
-            },
-            'yAxis': {
-                'type': 'value',
-                'name': 'Visualizadores',
-                'nameLocation': 'middle',
-                'nameGap': 40
-            },
-            'series': []
-        }
-
-        # Preparar datos para el gráfico
-        all_times = set()
-        all_data = {}
-        
-        # Primero recolectamos todos los tiempos y datos
-        for stream_id, data in self.historical_data.items():
-            if data:
-                stream = self.stream_service.get_stream_details(stream_id)
-                if stream:
-                    # Redondeamos los timestamps al segundo más cercano para mejor alineación
-                    all_data[stream.title] = {
-                        datetime(
-                            t.year, t.month, t.day, 
-                            t.hour, t.minute, t.second
-                        ): d['viewers'] 
-                        for t, d in zip(
-                            [d['timestamp'] for d in data],
-                            data
-                        )
-                    }
-                    all_times.update(all_data[stream.title].keys())
-
-        if all_times:
-            # Ordenar tiempos y convertirlos a formato HH:MM:SS
-            sorted_times = sorted(all_times)
-            x_data = [t.strftime('%H:%M:%S') for t in sorted_times]
-            chart_options['xAxis']['data'] = x_data
-
-            # Preparar series
-            colors = ['#2196F3', '#4CAF50', '#FFC107', '#9C27B0', '#FF5722']
-            for i, (stream_name, data) in enumerate(all_data.items()):
-                chart_options['legend']['data'].append(stream_name)
-                chart_options['series'].append({
-                    'name': stream_name,
-                    'type': 'line',
-                    'data': [data.get(t, None) for t in sorted_times],
-                    'connectNulls': True,
-                    'smooth': True,
-                    'lineStyle': {
-                        'width': 2,
-                        'color': colors[i % len(colors)]
-                    },
-                    'areaStyle': {
-                        'color': colors[i % len(colors)],
-                        'opacity': 0.1
-                    },
-                    'symbol': 'circle',
-                    'symbolSize': 6
-                })
-
-        self.main_chart.options.update(chart_options)
-        self.main_chart.update()
+    def update_streams(self):
+        """Actualiza los datos de los streams y los gráficos."""
+        try:
+            # Obtener datos actualizados
+            streams = self.stream_service.get_all_streams()
+            
+            # Actualizar gráfico principal
+            series = []
+            x_data = []
+            
+            for stream in streams:
+                if stream.viewer_history:
+                    # Convertir timestamps a formato legible
+                    x_data = [datetime.fromtimestamp(ts).strftime('%H:%M:%S') 
+                             for ts, _ in stream.viewer_history]
+                    
+                    # Agregar serie para este stream
+                    series.append({
+                        'name': stream.title,
+                        'type': 'line',
+                        'data': [viewers for _, viewers in stream.viewer_history]
+                    })
+            
+            self.main_chart.options['xAxis']['data'] = x_data
+            self.main_chart.options['series'] = series
+            self.main_chart.options['legend']['data'] = [s['name'] for s in series]
+            self.main_chart.update()
+            
+            # Actualizar tarjetas de streams
+            self.streams_container.clear()
+            for stream in streams:
+                with self.streams_container:
+                    with ui.card().classes('w-full p-4'):
+                        with ui.row().classes('w-full justify-between items-center'):
+                            ui.label(stream.title).classes('text-lg font-bold')
+                            ui.label(f'{stream.current_viewers:,} viewers').classes('text-xl')
+                        with ui.row().classes('w-full justify-between text-sm text-gray-500'):
+                            ui.label(f'ID: {stream.video_id}')
+                            ui.label(f'Última actualización: {datetime.fromtimestamp(stream.last_updated).strftime("%H:%M:%S")}')
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar streams: {str(e)}")
 
     def update_metrics_chart(self):
-        """
-        Actualiza el gráfico de métricas del sistema.
-        """
-        if not self.metrics_chart:
-            return
-
-        metrics = system_monitor.collect_metrics()
-        if not metrics:
-            return
-
-        chart_options = {
-            'title': {
-                'text': 'Métricas del Sistema',
-                'left': 'center'
-            },
-            'tooltip': {
-                'trigger': 'axis'
-            },
-            'legend': {
-                'data': ['CPU', 'Memoria', 'Llamadas API', 'Actualizaciones', 'Errores'],
-                'bottom': 0
-            },
-            'xAxis': {
-                'type': 'category',
-                'data': [m['timestamp'].strftime('%H:%M:%S') for m in system_monitor.metrics_history['cpu_percent']],
-                'name': 'Hora',
-                'nameLocation': 'middle',
-                'nameGap': 30
-            },
-            'yAxis': [
-                {
-                    'type': 'value',
-                    'name': 'Porcentaje',
-                    'min': 0,
-                    'max': 100,
-                    'position': 'left'
-                },
-                {
-                    'type': 'value',
-                    'name': 'Cantidad',
-                    'position': 'right'
+        """Actualiza el gráfico de métricas del sistema."""
+        try:
+            # Obtener métricas del sistema
+            cpu_percent = psutil.cpu_percent()
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            # Obtener timestamp actual
+            current_time = datetime.now().strftime('%H:%M:%S')
+            
+            # Actualizar datos del gráfico
+            if not hasattr(self, '_metrics_data'):
+                self._metrics_data = {
+                    'times': [],
+                    'cpu': [],
+                    'memory': [],
+                    'disk': [],
+                    'streams': []
                 }
-            ],
-            'series': [
+            
+            # Mantener solo los últimos 60 puntos
+            max_points = 60
+            self._metrics_data['times'].append(current_time)
+            self._metrics_data['cpu'].append(cpu_percent)
+            self._metrics_data['memory'].append(memory.percent)
+            self._metrics_data['disk'].append(disk.percent)
+            self._metrics_data['streams'].append(len(self.stream_service.get_all_streams()))
+            
+            if len(self._metrics_data['times']) > max_points:
+                self._metrics_data['times'] = self._metrics_data['times'][-max_points:]
+                self._metrics_data['cpu'] = self._metrics_data['cpu'][-max_points:]
+                self._metrics_data['memory'] = self._metrics_data['memory'][-max_points:]
+                self._metrics_data['disk'] = self._metrics_data['disk'][-max_points:]
+                self._metrics_data['streams'] = self._metrics_data['streams'][-max_points:]
+            
+            # Actualizar gráfico
+            self.metrics_chart.options['xAxis']['data'] = self._metrics_data['times']
+            self.metrics_chart.options['series'] = [
                 {
                     'name': 'CPU',
                     'type': 'line',
-                    'data': list(system_monitor.metrics_history['cpu_percent']),
+                    'data': self._metrics_data['cpu'],
                     'yAxisIndex': 0
                 },
                 {
                     'name': 'Memoria',
                     'type': 'line',
-                    'data': list(system_monitor.metrics_history['memory_percent']),
+                    'data': self._metrics_data['memory'],
                     'yAxisIndex': 0
                 },
                 {
-                    'name': 'Llamadas API',
+                    'name': 'Disco',
                     'type': 'line',
-                    'data': list(system_monitor.metrics_history['api_calls']),
-                    'yAxisIndex': 1
+                    'data': self._metrics_data['disk'],
+                    'yAxisIndex': 0
                 },
                 {
-                    'name': 'Actualizaciones',
+                    'name': 'Streams',
                     'type': 'line',
-                    'data': list(system_monitor.metrics_history['stream_updates']),
-                    'yAxisIndex': 1
-                },
-                {
-                    'name': 'Errores',
-                    'type': 'line',
-                    'data': list(system_monitor.metrics_history['errors']),
+                    'data': self._metrics_data['streams'],
                     'yAxisIndex': 1
                 }
             ]
-        }
-
-        self.metrics_chart.options.update(chart_options)
-        self.metrics_chart.update()
-
-    def update_streams(self):
-        """
-        Actualiza los datos de todos los streams monitoreados.
-        Este método se ejecuta periódicamente para mantener la información actualizada.
-        """
-        logger.debug("Iniciando actualización de streams")
-        try:
-            for stream in self.stream_service.get_all_streams():
-                system_monitor.increment_api_calls()
-                updated_stream = self.stream_service.update_stream_metrics(stream.video_id)
-                if updated_stream:
-                    system_monitor.increment_stream_updates()
-                    # Actualizar datos históricos
-                    current_time = datetime.now()
-                    self.historical_data[updated_stream.video_id].append({
-                        'timestamp': current_time,
-                        'viewers': updated_stream.current_viewers
-                    })
-                    # Actualizar tarjeta
-                    if updated_stream.video_id in self.stream_cards:
-                        self.stream_cards[updated_stream.video_id].delete()
-                    self.create_stream_card(updated_stream)
+            self.metrics_chart.options['legend']['data'] = ['CPU', 'Memoria', 'Disco', 'Streams']
+            self.metrics_chart.update()
             
-            # Actualizar gráficos
-            self.update_chart()
-            self.update_metrics_chart()
-            logger.debug("Actualización de streams completada")
         except Exception as e:
-            system_monitor.increment_errors()
-            logger.error(f"Error al actualizar streams: {str(e)}")
+            logger.error(f"Error al actualizar métricas: {str(e)}")
 
     def start(self, port: int = 8080):
         """
@@ -410,18 +322,52 @@ class StreamViewerApp:
                     ui.button('Agregar Stream', on_click=dialog.open).classes('bg-blue-500 text-white')
                 
                 # Gráfico principal
-                self.main_chart = ui.chart({
+                self.main_chart = ui.echart({
                     'title': {'text': 'Evolución de Visualizadores'},
-                    'xAxis': {'type': 'datetime'},
-                    'yAxis': {'title': {'text': 'Visualizadores'}},
+                    'tooltip': {'trigger': 'axis'},
+                    'legend': {'data': [], 'bottom': 0},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': [],
+                        'name': 'Hora',
+                        'nameLocation': 'middle',
+                        'nameGap': 30
+                    },
+                    'yAxis': {
+                        'type': 'value',
+                        'name': 'Visualizadores',
+                        'nameLocation': 'middle',
+                        'nameGap': 40
+                    },
                     'series': []
                 }).classes('w-full h-64')
                 
                 # Gráfico de métricas del sistema
-                self.metrics_chart = ui.chart({
+                self.metrics_chart = ui.echart({
                     'title': {'text': 'Métricas del Sistema'},
-                    'xAxis': {'type': 'datetime'},
-                    'yAxis': {'title': {'text': 'Uso (%)'}},
+                    'tooltip': {'trigger': 'axis'},
+                    'legend': {'data': [], 'bottom': 0},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': [],
+                        'name': 'Hora',
+                        'nameLocation': 'middle',
+                        'nameGap': 30
+                    },
+                    'yAxis': [
+                        {
+                            'type': 'value',
+                            'name': 'Porcentaje',
+                            'min': 0,
+                            'max': 100,
+                            'position': 'left'
+                        },
+                        {
+                            'type': 'value',
+                            'name': 'Cantidad',
+                            'position': 'right'
+                        }
+                    ],
                     'series': []
                 }).classes('w-full h-64')
                 
@@ -440,34 +386,30 @@ class StreamViewerApp:
             logger.error(f"Error al iniciar la interfaz de usuario: {str(e)}")
             raise
 
-    def add_stream(self, video_id):
+    def add_stream(self, video_id: str):
         """
-        Agrega un nuevo stream para monitorear.
+        Agrega un nuevo stream a la aplicación.
         
         Args:
             video_id (str): ID del video de YouTube a monitorear
-            
-        Returns:
-            bool: True si el stream se agregó exitosamente, False en caso contrario
         """
-        if not video_id:
-            ui.notify('Por favor ingrese un ID de video válido', type='negative')
-            return False
-        
         try:
+            if not video_id:
+                ui.notify('Por favor ingrese un ID de video válido', type='negative')
+                return
+                
+            # Intentar agregar el stream
             stream = self.stream_service.add_stream(video_id)
             if stream:
-                self.create_stream_card(stream)
-                ui.notify('Stream agregado exitosamente', type='positive')
-                return True
+                ui.notify(f'Stream agregado: {stream.title}', type='positive')
+                # Actualizar la interfaz
+                self.update_streams()
             else:
-                ui.notify('No se pudo agregar el stream', type='negative')
-                return False
+                ui.notify('No se pudo agregar el stream. Verifique el ID del video.', type='negative')
+                
         except Exception as e:
-            system_monitor.increment_errors()
             logger.error(f"Error al agregar stream: {str(e)}")
-            ui.notify(f'Error al agregar stream: {str(e)}', type='negative')
-            return False
+            ui.notify('Error al agregar el stream', type='negative')
 
 if __name__ in {"__main__", "__mp_main__"}:
     app = StreamViewerApp()
