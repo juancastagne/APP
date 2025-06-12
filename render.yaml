@@ -2,17 +2,10 @@ services:
   - type: web
     name: stream-views
     env: python
-    buildCommand: |
-      pip install -r requirements.txt
-      pip install -e .
-    startCommand: cd src && PYTHONPATH=$PYTHONPATH:/opt/render/project/src python -m main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python APP/src/main.py
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: YOUTUBE_API_KEY
         sync: false
-        required: true
-      - key: DATABASE_URL
-        value: sqlite:///stream_views.db
-      - key: HOST
-        value: 0.0.0.0
-      - key: PORT
-        value: 8080
