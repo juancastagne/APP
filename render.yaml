@@ -9,9 +9,7 @@ services:
       ls -la
       echo "Installing requirements..."
       pip install -r requirements.txt
-      echo "Making start script executable..."
-      chmod +x start.sh
-    startCommand: ./start.sh
+    startCommand: python wsgi.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
