@@ -3,6 +3,17 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 @dataclass
+class Stream:
+    video_id: str
+    last_updated: datetime = datetime.now()
+    is_active: bool = True
+
+    def __init__(self, video_id: str):
+        self.video_id = video_id
+        self.last_updated = datetime.now()
+        self.is_active = True
+
+@dataclass
 class StreamMetrics:
     video_id: str
     title: str

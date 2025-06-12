@@ -1,10 +1,9 @@
 from typing import Dict, List, Optional
-from src.models.stream_metrics import StreamMetrics
+from src.models.stream_metrics import StreamMetrics, Stream
 from src.core.youtube_client import YouTubeClient
 from datetime import datetime, timedelta
 from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
-from src.models.stream import Stream # type: ignore
 from src.repositories.stream_repository import StreamRepository
 
 class StreamService:
