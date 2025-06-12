@@ -128,4 +128,36 @@ class StreamRepository:
             return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
         except Exception as e:
             logger.error(f"Error al obtener streams activos: {str(e)}")
+            return []
+
+    def get_all_streams(self) -> List[Dict]:
+        """Obtiene todos los streams de la base de datos"""
+        try:
+            self.db.cursor.execute("""
+                SELECT s.*, 
+                       COALESCE(sm.current_viewers, 0) as current_viewers,
+                       COALESCE(sm.total_views, 0) as total_views,
+                       COALESCE(sm.like_count, 0) as like_count,
+                       COALESCE(sm.comment_count, 0) as comment_count,
+                       COALESCE(sm.live_chat_messages, 0) as live_chat_messages,
+                       COALESCE(sm.subscriber_count, 0) as subscriber_count
+                FROM streams s
+                LEFT JOIN (
+                    SELECT stream_id, 
+                           current_viewers,
+                           total_views,
+                           like_count,
+                           comment_count,
+                           live_chat_messages,
+                           subscriber_count,
+                           ROW_NUMBER() OVER (PARTITION BY stream_id ORDER BY timestamp DESC) as rn
+                    FROM stream_metrics
+                ) sm ON s.id = sm.stream_id AND sm.rn = 1
+                ORDER BY s.created_at DESC
+            """)
+            
+            columns = [description[0] for description in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"Error al obtener todos los streams: {str(e)}")
             return [] 
