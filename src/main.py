@@ -1,11 +1,16 @@
 import os
+import sys
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
 from nicegui import ui
 
-# Cargar variables de entorno desde el directorio raíz
-env_path = Path(__file__).parent.parent.parent / '.env'
+# Agregar el directorio raíz al path de Python
+root_dir = Path(__file__).parent.parent
+sys.path.append(str(root_dir))
+
+# Cargar variables de entorno
+env_path = root_dir.parent / '.env'
 load_dotenv(env_path)
 
 from src.ui.app import StreamViewerApp
