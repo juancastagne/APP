@@ -3,26 +3,42 @@ services:
     name: stream-views
     env: python
     buildCommand: |
-      echo "=== Current Directory ==="
-      pwd
-      echo "=== Directory Contents ==="
+      echo "=== Build Phase ==="
+      echo "Current directory: $(pwd)"
+      echo "Directory contents:"
       ls -la
-      echo "=== Installing Requirements ==="
+      echo "Installing requirements..."
       pip install -r requirements.txt
     startCommand: |
-      echo "=== Starting Application ==="
-      echo "=== Current Directory ==="
-      pwd
-      echo "=== Directory Contents ==="
+      echo "=== Start Phase ==="
+      echo "Current directory: $(pwd)"
+      echo "Directory contents:"
       ls -la
-      echo "=== Python Version ==="
-      python --version
-      echo "=== Python Path ==="
-      python -c "import sys; print('\n'.join(sys.path))"
-      echo "=== Trying to run main.py ==="
+      echo "Creating start script..."
+      cat > start.sh << 'EOL'
+      #!/bin/bash
+      echo "=== Start Script ==="
+      echo "Current directory: $(pwd)"
+      echo "Directory contents:"
+      ls -la
+      echo "Searching for main.py..."
       find . -name "main.py"
-      echo "=== Running main.py ==="
-      python src/main.py
+      echo "Python path:"
+      python -c "import sys; print('\n'.join(sys.path))"
+      echo "Running main.py..."
+      if [ -f "src/main.py" ]; then
+          echo "Found main.py in src directory"
+          python src/main.py
+      elif [ -f "APP/src/main.py" ]; then
+          echo "Found main.py in APP/src directory"
+          python APP/src/main.py
+      else
+          echo "main.py not found in expected locations"
+          exit 1
+      fi
+      EOL
+      chmod +x start.sh
+      ./start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
