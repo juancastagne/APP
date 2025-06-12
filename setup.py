@@ -1,10 +1,10 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 setup(
     name="stream_views",
     version="0.1",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=find_namespace_packages(include=["src*"]),
+    package_dir={"": "."},
     install_requires=[
         "nicegui>=1.4.0",
         "google-api-python-client>=2.0.0",
