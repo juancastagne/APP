@@ -2,14 +2,8 @@ services:
   - type: web
     name: stream-views
     env: python
-    buildCommand: |
-      echo "=== Build Phase ==="
-      echo "Current directory: $(pwd)"
-      echo "Directory contents:"
-      ls -la
-      echo "Installing requirements..."
-      pip install -r requirements.txt
-    startCommand: cd APP && python wsgi.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd src && python main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0

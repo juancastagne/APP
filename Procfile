@@ -1,1 +1,0 @@
-web: cd APP && python wsgi.py 
