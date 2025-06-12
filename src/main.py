@@ -31,5 +31,5 @@ def main():
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
         raise
 
-if __name__ == "__main__":
+if __name__ in {"__main__", "__mp_main__"}:
     main() 
