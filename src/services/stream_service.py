@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
 from src.repositories.stream_repository import StreamRepository
+from src.repositories.database import Database
 
 class StreamService:
     """
@@ -19,7 +20,8 @@ class StreamService:
         self.monitored_streams: Dict[str, StreamMetrics] = {}
         self.last_video_update: Dict[str, datetime] = {}
         self.last_channel_update: Dict[str, datetime] = {}
-        self.repository = StreamRepository()
+        self.db = Database()
+        self.repository = StreamRepository(self.db)
 
     @require_api_key
     @rate_limit
