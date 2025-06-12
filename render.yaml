@@ -3,11 +3,11 @@ services:
     name: stream-views
     env: python
     buildCommand: |
-      cd APP
+      cd /opt/render/project/src/APP
       pip install -r requirements.txt
     startCommand: |
-      cd APP
-      python -m src.main
+      cd /opt/render/project/src/APP
+      PYTHONPATH=/opt/render/project/src/APP python src/main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
