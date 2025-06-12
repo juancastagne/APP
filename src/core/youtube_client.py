@@ -5,7 +5,7 @@ from datetime import datetime
 
 class YouTubeClient:
     def __init__(self):
-        self.api_key = "AIzaSyBAsey4OnFlmqOm0lXuU02eWcXm1mzc5CU"  # API key temporal
+        self.api_key = ""  # API key temporal
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
 
     def get_live_metrics(self, video_id: str) -> dict:
