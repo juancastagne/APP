@@ -1,0 +1,3 @@
+nicegui
+google-api-python-client
+python-dotenv

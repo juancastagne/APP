@@ -1,0 +1,13 @@
+services:
+  stream-viewer:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - PYTHONPATH=/app
+      - HOST=0.0.0.0
+      - PORT=8080
+    volumes:
+      - .:/app
+    restart: unless-stopped 

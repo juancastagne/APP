@@ -1,0 +1,17 @@
+README.md
+setup.py
+src/__init__.py
+src/main.py
+src/core/__init__.py
+src/core/youtube_client.py
+src/models/__init__.py
+src/models/stream_metrics.py
+src/services/__init__.py
+src/services/stream_service.py
+src/ui/__init__.py
+src/ui/app.py
+stream_views.egg-info/PKG-INFO
+stream_views.egg-info/SOURCES.txt
+stream_views.egg-info/dependency_links.txt
+stream_views.egg-info/requires.txt
+stream_views.egg-info/top_level.txt
