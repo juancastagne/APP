@@ -26,10 +26,10 @@ def main():
         port = int(os.getenv('PORT', 8080))
         
         # Iniciar el servidor
-        ui.run(port=port, host='0.0.0.0')
+        ui.run(port=port, host='0.0.0.0', show=False)
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
         raise
 
-if __name__ in {"__main__", "__mp_main__"}:
-    main() 
+# Ejecutar main() directamente
+main() 
