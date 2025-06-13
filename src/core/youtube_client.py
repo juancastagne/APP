@@ -190,6 +190,7 @@ class YouTubeClient:
             
             # Obtener información del canal
             channel_id = snippet.get('channelId')
+            channel_title = snippet.get('channelTitle', 'Sin canal')
             logger.info(f"Channel ID obtenido: {channel_id}")
             
             channel_data = {}
@@ -203,7 +204,9 @@ class YouTubeClient:
                     
                     if channel_response.get('items'):
                         channel_data = channel_response['items'][0]
-                        logger.info(f"Información del canal obtenida: {channel_data.get('snippet', {}).get('title')}")
+                        # Usar el título del canal de los detalles del canal si está disponible
+                        channel_title = channel_data.get('snippet', {}).get('title', channel_title)
+                        logger.info(f"Información del canal obtenida: {channel_title}")
                     else:
                         logger.warning(f"No se encontró información del canal: {channel_id}")
                 except Exception as e:
@@ -225,7 +228,7 @@ class YouTubeClient:
 
             result = {
                 'title': snippet.get('title', 'Sin título'),
-                'channel_title': snippet.get('channelTitle', 'Sin canal'),
+                'channel_title': channel_title,  # Usar el título del canal obtenido
                 'thumbnail_url': snippet.get('thumbnails', {}).get('high', {}).get('url', ''),
                 'current_viewers': int(live_details.get('concurrentViewers', 0)) if 'concurrentViewers' in live_details else 0,
                 'total_views': int(statistics.get('viewCount', 0)),
@@ -244,7 +247,7 @@ class YouTubeClient:
                 },
                 'channel_details': {
                     'id': channel_data.get('id'),
-                    'title': channel_data.get('snippet', {}).get('title', 'Sin título'),
+                    'title': channel_title,  # Usar el mismo título del canal
                     'description': channel_data.get('snippet', {}).get('description', 'Sin descripción'),
                     'published_at': channel_data.get('snippet', {}).get('publishedAt'),
                     'country': channel_data.get('snippet', {}).get('country'),
