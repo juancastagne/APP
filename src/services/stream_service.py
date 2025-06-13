@@ -6,6 +6,8 @@ from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
 from src.repositories.stream_repository import StreamRepository
 from src.repositories.database import Database
+from sqlalchemy.orm import Session
+from src.core.security import SecurityManager
 
 class StreamService:
     """
@@ -14,14 +16,15 @@ class StreamService:
     Este servicio implementa medidas de seguridad y validación de datos.
     """
     
-    def __init__(self):
+    def __init__(self, db_session: Session):
         """Inicializa el servicio de streams."""
         self.youtube_client = YouTubeClient()
         self.monitored_streams: Dict[str, StreamMetrics] = {}
         self.last_video_update: Dict[str, datetime] = {}
         self.last_channel_update: Dict[str, datetime] = {}
         self.db = Database()
-        self.repository = StreamRepository(self.db)
+        self.repository = StreamRepository(db_session)
+        self.security_manager = SecurityManager()
 
     @require_api_key
     @rate_limit
@@ -33,39 +36,37 @@ class StreamService:
             video_id (str): ID del video de YouTube
             
         Returns:
-            Optional[Stream]: Stream agregado o None si hay error
+            Optional[Stream]: Stream agregado o None si hubo un error
         """
         try:
-            # Validar y sanitizar el ID del video
-            if not security_manager.validate_video_id(video_id):
-                logger.warning(f"Intento de agregar stream con ID inválido: {video_id}")
+            # Validar el video_id
+            if not self.security_manager.validate_video_id(video_id):
+                logger.error(f"Video ID inválido: {video_id}")
                 return None
             
             # Verificar si el stream ya existe
             existing_stream = self.repository.get_stream_by_id(video_id)
             if existing_stream:
-                logger.info(f"Stream {video_id} ya existe en la base de datos")
+                logger.warning(f"El stream {video_id} ya está siendo monitoreado")
                 return existing_stream
             
-            # Verificar que el video existe y está en vivo
+            # Obtener detalles del video
             video_details = self.youtube_client.get_stream_details_old(video_id)
             if not video_details:
-                logger.warning(f"No se pudo obtener información del video {video_id}")
+                logger.error(f"No se pudieron obtener los detalles del video {video_id}")
                 return None
-                
-            # Crear nuevo stream con la información obtenida
+            
+            # Crear el stream
             stream = Stream(
                 video_id=video_id,
                 title=video_details.get('title', 'Sin título'),
-                channel_name=video_details.get('channel_title', 'Sin canal'),
+                channel_name=video_details.get('channel_name', 'Sin canal'),
                 thumbnail_url=video_details.get('thumbnail_url', ''),
-                current_viewers=video_details.get('current_viewers', 0),
-                last_updated=datetime.now()
+                current_viewers=video_details.get('current_viewers', 0)
             )
             
-            self.repository.save_stream(stream)
-            logger.info(f"Stream {video_id} agregado exitosamente")
-            return stream
+            # Guardar el stream
+            return self.repository.create_stream(stream)
             
         except Exception as e:
             logger.error(f"Error al agregar stream {video_id}: {str(e)}")
@@ -136,12 +137,57 @@ class StreamService:
             logger.error(f"Error al obtener detalles del stream {video_id}: {str(e)}")
             return None
 
+    def get_stream_metrics(self, video_id: str) -> Optional[Dict]:
+        """
+        Obtiene las métricas actuales de un stream.
+        
+        Args:
+            video_id (str): ID del video de YouTube
+            
+        Returns:
+            Optional[Dict]: Métricas del stream o None si hubo un error
+        """
+        try:
+            # Obtener detalles del video
+            video_details = self.youtube_client.get_stream_details_old(video_id)
+            if not video_details:
+                return None
+            
+            # Crear métricas
+            metrics = StreamMetrics(
+                video_id=video_id,
+                current_viewers=video_details.get('current_viewers', 0),
+                total_views=video_details.get('total_views', 0),
+                like_count=video_details.get('like_count', 0),
+                comment_count=video_details.get('comment_count', 0),
+                live_chat_messages=video_details.get('live_chat_messages', 0),
+                subscriber_count=video_details.get('subscriber_count', 0),
+                additional_metrics=video_details
+            )
+            
+            # Guardar métricas
+            self.repository.add_metrics(metrics)
+            
+            return {
+                'current_viewers': metrics.current_viewers,
+                'total_views': metrics.total_views,
+                'like_count': metrics.like_count,
+                'comment_count': metrics.comment_count,
+                'live_chat_messages': metrics.live_chat_messages,
+                'subscriber_count': metrics.subscriber_count,
+                'timestamp': metrics.timestamp.isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error al obtener métricas para stream {video_id}: {str(e)}")
+            return None
+
     def get_all_streams(self) -> List[Stream]:
         """
-        Obtiene todos los streams monitoreados.
+        Obtiene todos los streams activos.
         
         Returns:
-            List[Stream]: Lista de streams
+            List[Stream]: Lista de streams activos
         """
         try:
             return self.repository.get_all_streams()
@@ -157,23 +203,10 @@ class StreamService:
             video_id (str): ID del video de YouTube
             
         Returns:
-            bool: True si se eliminó exitosamente, False en caso contrario
+            bool: True si se eliminó correctamente, False en caso contrario
         """
         try:
-            # Validar el ID del video
-            if not security_manager.validate_video_id(video_id):
-                logger.warning(f"Intento de eliminar stream con ID inválido: {video_id}")
-                return False
-            
-            stream = self.repository.get_stream_by_id(video_id)
-            if not stream:
-                logger.warning(f"Stream {video_id} no encontrado para eliminar")
-                return False
-            
-            self.repository.delete_stream(stream)
-            logger.info(f"Stream {video_id} eliminado exitosamente")
-            return True
-            
+            return self.repository.delete_stream(video_id)
         except Exception as e:
             logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
             return False 
