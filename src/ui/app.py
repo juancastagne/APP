@@ -232,7 +232,8 @@ class StreamViewerApp:
 
     def show_stream_details(self, stream):
         """Muestra los detalles completos de un stream."""
-        with ui.dialog() as dialog, ui.card().classes('w-full max-w-2xl'):
+        dialog = ui.dialog()
+        with dialog, ui.card().classes('w-full max-w-2xl'):
             ui.label('Detalles del Stream').classes('text-xl font-bold mb-4')
             
             with ui.grid(columns=2).classes('w-full gap-4'):
