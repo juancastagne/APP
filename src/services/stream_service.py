@@ -55,7 +55,7 @@ class StreamService:
             stream = Stream(
                 video_id=video_id,
                 title=video_details.get('title', 'Sin título'),
-                channel_name=video_details.get('channel_name', 'Sin canal'),
+                channel_name=video_details.get('channel_title', 'Sin canal'),
                 thumbnail_url=video_details.get('thumbnail_url', ''),
                 current_viewers=video_details.get('current_viewers', 0)
             )
