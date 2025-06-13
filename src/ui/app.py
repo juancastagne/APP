@@ -44,7 +44,7 @@ class StreamViewerApp:
                 # Cargar streams iniciales
                 self.load_streams()
                 
-                # Configurar actualización automática
+                # Configurar actualización automática cada 30 segundos
                 self.update_timer = ui.timer(30.0, self.load_streams)
                 
             logger.info("Interfaz de usuario iniciada correctamente")
@@ -183,6 +183,22 @@ class StreamViewerApp:
         except Exception as e:
             logger.error(f"Error al eliminar stream: {str(e)}")
             ui.notify('Error al eliminar el stream', type='negative')
+
+    def update_metrics(self):
+        """Actualiza las métricas de los streams actuales."""
+        try:
+            for stream in self.streams:
+                updated_stream = self.stream_service.update_stream_metrics(stream.video_id)
+                if updated_stream:
+                    # Actualizar el stream en la lista
+                    stream.current_viewers = updated_stream.current_viewers
+                    stream.last_updated = updated_stream.last_updated
+            
+            # Actualizar la visualización
+            self.update_streams_display()
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar métricas: {str(e)}")
 
     def start(self):
         """Inicia la aplicación."""
