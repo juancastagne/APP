@@ -160,13 +160,19 @@ class YouTubeClient:
         """Obtiene todos los detalles disponibles de un stream en vivo y su canal"""
         try:
             logger.info(f"Obteniendo detalles para el video ID: {video_id}")
+            logger.info(f"API Key configurada: {'Sí' if self.api_key else 'No'}")
             
             # Obtener información del video
-            video_request = self.youtube.videos().list(
-                part="snippet,liveStreamingDetails,statistics,contentDetails,status,topicDetails",
-                id=video_id
-            )
-            video_response = video_request.execute()
+            try:
+                video_request = self.youtube.videos().list(
+                    part="snippet,liveStreamingDetails,statistics,contentDetails,status,topicDetails",
+                    id=video_id
+                )
+                video_response = video_request.execute()
+                logger.info("Respuesta de la API de videos recibida")
+            except Exception as e:
+                logger.error(f"Error al llamar a la API de videos: {str(e)}")
+                return None
             
             if not video_response.get('items'):
                 logger.warning(f"No se encontró el video con ID: {video_id}")
@@ -198,6 +204,8 @@ class YouTubeClient:
                     if channel_response.get('items'):
                         channel_data = channel_response['items'][0]
                         logger.info(f"Información del canal obtenida: {channel_data.get('snippet', {}).get('title')}")
+                    else:
+                        logger.warning(f"No se encontró información del canal: {channel_id}")
                 except Exception as e:
                     logger.error(f"Error al obtener información del canal: {str(e)}")
             
@@ -211,6 +219,7 @@ class YouTubeClient:
                     )
                     chat_response = chat_request.execute()
                     live_chat_messages = chat_response.get('pageInfo', {}).get('totalResults', 0)
+                    logger.info(f"Métricas del chat obtenidas: {live_chat_messages} mensajes")
                 except Exception as e:
                     logger.error(f"Error al obtener métricas del chat: {str(e)}")
 

@@ -50,6 +50,13 @@ class Config:
                 logger.error("No se encontró la clave API de YouTube")
                 return False
             
+            # Verificar longitud y formato de la API key
+            if len(cls.YOUTUBE_API_KEY) != 39 or not cls.YOUTUBE_API_KEY.startswith('AIza'):
+                logger.error("La clave API de YouTube no tiene el formato correcto")
+                return False
+            
+            logger.info("API key de YouTube validada correctamente")
+            
             # Validar directorio de logs
             log_dir = Path(cls.LOG_FILE_PATH).parent
             log_dir.mkdir(exist_ok=True)
@@ -72,6 +79,7 @@ class Config:
                 logger.error("MAX_STREAMS debe ser mayor que 0")
                 return False
             
+            logger.info("Configuración validada correctamente")
             return True
             
         except Exception as e:
