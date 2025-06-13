@@ -2,6 +2,7 @@ from nicegui import ui # type: ignore
 from ..core.logger import logger
 from ..core.database import get_db
 from ..services.stream_service import StreamService
+from .components.stream_graph import StreamGraph
 import asyncio
 from datetime import datetime
 from collections import defaultdict
@@ -23,6 +24,7 @@ class StreamViewerApp:
         self.stream_service = StreamService(self.db)
         self.streams = []
         self.update_timer = None
+        self.stream_graph = StreamGraph()
         logger.info("Iniciando aplicación Stream Views")
     
     def setup_ui(self):
@@ -37,6 +39,10 @@ class StreamViewerApp:
                 with ui.row().classes('w-full justify-between items-center mb-4'):
                     ui.label('Stream Views').classes('text-2xl font-bold')
                     ui.button('Agregar Stream', on_click=self.show_add_dialog).classes('bg-blue-500 text-white')
+                
+                # Gráfico de streams
+                with ui.card().classes('w-full mb-4'):
+                    self.stream_graph.plot
                 
                 # Lista de streams
                 self.streams_container = ui.column().classes('w-full gap-4')
@@ -117,6 +123,12 @@ class StreamViewerApp:
                 if updated_stream:
                     stream.current_viewers = updated_stream.current_viewers
                     stream.last_updated = updated_stream.last_updated
+                    # Actualizar el gráfico con los nuevos datos
+                    self.stream_graph.update_data(
+                        stream_id=stream.video_id,
+                        viewers=stream.current_viewers,
+                        timestamp=stream.last_updated
+                    )
             
             # Actualizar la visualización
             self.update_streams_display()
