@@ -55,7 +55,8 @@ class StreamViewerApp:
     
     def show_add_dialog(self):
         """Muestra el diálogo para agregar un nuevo stream."""
-        with ui.dialog() as dialog, ui.card().classes('w-full max-w-md'):
+        dialog = ui.dialog()
+        with dialog, ui.card().classes('w-full max-w-md'):
             ui.label('Agregar Stream').classes('text-xl font-bold mb-4')
             
             # Input para el ID del video
@@ -72,6 +73,8 @@ class StreamViewerApp:
             with ui.row().classes('w-full justify-end gap-2'):
                 ui.button('Cancelar', on_click=dialog.close).classes('bg-gray-500 text-white')
                 ui.button('Agregar', on_click=lambda: self.add_stream(video_id.value, dialog)).classes('bg-blue-500 text-white')
+        
+        dialog.open()
     
     def add_stream(self, video_id: str, dialog):
         """Agrega un nuevo stream para monitorear."""
