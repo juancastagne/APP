@@ -1,8 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
 from .config import Config
 from .logger import logger
+
+# Obtener la ruta de la base de datos
+db_path = Config.DATABASE_URL.replace('sqlite:///', '')
 
 # Crear el motor de la base de datos
 engine = create_engine(Config.DATABASE_URL)
@@ -31,6 +35,12 @@ def init_db():
     Inicializa la base de datos creando todas las tablas.
     """
     try:
+        # Si la base de datos existe, eliminarla
+        if os.path.exists(db_path):
+            logger.info(f"Eliminando base de datos existente: {db_path}")
+            os.remove(db_path)
+        
+        # Crear todas las tablas
         Base.metadata.create_all(bind=engine)
         logger.info("Base de datos inicializada correctamente")
     except Exception as e:

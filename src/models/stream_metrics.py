@@ -11,9 +11,9 @@ class Stream(Base):
     
     id = Column(Integer, primary_key=True)
     video_id = Column(String(50), unique=True, nullable=False)
-    title = Column(String(200))
-    channel_name = Column(String(100))
-    thumbnail_url = Column(String(200))
+    title = Column(String(200), nullable=False, default='Sin título')
+    channel_name = Column(String(100), nullable=False, default='Sin canal')
+    thumbnail_url = Column(String(200), nullable=False, default='')
     current_viewers = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     last_updated = Column(DateTime, default=datetime.utcnow)
@@ -25,9 +25,9 @@ class Stream(Base):
     def __init__(self, video_id: str, title: str = None, channel_name: str = None, 
                  thumbnail_url: str = None, current_viewers: int = 0, is_active: bool = True):
         self.video_id = video_id
-        self.title = title
-        self.channel_name = channel_name
-        self.thumbnail_url = thumbnail_url
+        self.title = title or 'Sin título'
+        self.channel_name = channel_name or 'Sin canal'
+        self.thumbnail_url = thumbnail_url or ''
         self.current_viewers = current_viewers
         self.is_active = is_active
         self.last_updated = datetime.utcnow()
@@ -42,13 +42,13 @@ class StreamMetrics(Base):
     id = Column(Integer, primary_key=True)
     video_id = Column(String(50), ForeignKey('streams.video_id'), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    current_viewers = Column(Integer)
-    total_views = Column(Integer)
-    like_count = Column(Integer)
-    comment_count = Column(Integer)
-    live_chat_messages = Column(Integer)
-    subscriber_count = Column(Integer)
-    additional_metrics = Column(JSON)
+    current_viewers = Column(Integer, default=0)
+    total_views = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    live_chat_messages = Column(Integer, default=0)
+    subscriber_count = Column(Integer, default=0)
+    additional_metrics = Column(JSON, default=dict)
     
     # Relación con el stream
     stream = relationship("Stream", back_populates="metrics")
