@@ -47,8 +47,22 @@ class StreamService:
                 logger.info(f"Stream {video_id} ya existe en la base de datos")
                 return existing_stream
             
-            # Crear nuevo stream
-            stream = Stream(video_id=video_id)
+            # Verificar que el video existe y está en vivo
+            video_details = self.youtube_client.get_stream_details_old(video_id)
+            if not video_details:
+                logger.warning(f"No se pudo obtener información del video {video_id}")
+                return None
+                
+            # Crear nuevo stream con la información obtenida
+            stream = Stream(
+                video_id=video_id,
+                title=video_details.get('title', 'Sin título'),
+                channel_name=video_details.get('channel_title', 'Sin canal'),
+                thumbnail_url=video_details.get('thumbnail_url', ''),
+                current_viewers=video_details.get('current_viewers', 0),
+                last_updated=datetime.now()
+            )
+            
             self.repository.save_stream(stream)
             logger.info(f"Stream {video_id} agregado exitosamente")
             return stream

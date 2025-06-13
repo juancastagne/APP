@@ -3,6 +3,9 @@ from googleapiclient.discovery import build
 from typing import Dict, Optional
 from datetime import datetime
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 class YouTubeClient:
     def __init__(self):
@@ -156,7 +159,7 @@ class YouTubeClient:
     def get_stream_details_old(self, video_id: str) -> Dict:
         """Obtiene todos los detalles disponibles de un stream en vivo y su canal"""
         try:
-            print(f"Obteniendo detalles para el video ID: {video_id}")
+            logger.info(f"Obteniendo detalles para el video ID: {video_id}")
             
             # Obtener información del video
             video_request = self.youtube.videos().list(
@@ -166,7 +169,7 @@ class YouTubeClient:
             video_response = video_request.execute()
             
             if not video_response.get('items'):
-                print("No se encontraron items en la respuesta del video")
+                logger.warning(f"No se encontró el video con ID: {video_id}")
                 return None
                 
             video = video_response['items'][0]
@@ -177,46 +180,39 @@ class YouTubeClient:
             status = video.get('status', {})
             topic_details = video.get('topicDetails', {})
             
-            print(f"Información del video obtenida: {snippet.get('title')}")
+            logger.info(f"Información del video obtenida: {snippet.get('title')}")
             
             # Obtener información del canal
             channel_id = snippet.get('channelId')
-            print(f"Channel ID obtenido: {channel_id}")
+            logger.info(f"Channel ID obtenido: {channel_id}")
             
             channel_data = {}
             if channel_id:
-                channel_request = self.youtube.channels().list(
-                    part="snippet,statistics,brandingSettings",
-                    id=channel_id
-                )
-                channel_response = channel_request.execute()
-                if channel_response['items']:
-                    channel = channel_response['items'][0]
-                    channel_data = {
-                        'id': channel.get('id'),
-                        'snippet': channel.get('snippet', {}),
-                        'statistics': channel.get('statistics', {}),
-                        'brandingSettings': channel.get('brandingSettings', {})
-                    }
-                    print(f"Información del canal obtenida: {channel_data.get('snippet', {}).get('title')}")
-                else:
-                    print("No se encontraron items en la respuesta del canal")
-
-            # Obtener comentarios en vivo si hay un chat activo
+                try:
+                    channel_request = self.youtube.channels().list(
+                        part="snippet,statistics,brandingSettings",
+                        id=channel_id
+                    )
+                    channel_response = channel_request.execute()
+                    
+                    if channel_response.get('items'):
+                        channel_data = channel_response['items'][0]
+                        logger.info(f"Información del canal obtenida: {channel_data.get('snippet', {}).get('title')}")
+                except Exception as e:
+                    logger.error(f"Error al obtener información del canal: {str(e)}")
+            
+            # Obtener métricas del chat en vivo
             live_chat_messages = 0
-            chat_id = live_details.get('activeLiveChatId')
-            if chat_id:
+            if 'activeLiveChatId' in live_details:
                 try:
                     chat_request = self.youtube.liveChatMessages().list(
-                        liveChatId=chat_id,
-                        part="snippet",
-                        maxResults=1
+                        liveChatId=live_details['activeLiveChatId'],
+                        part="snippet"
                     )
                     chat_response = chat_request.execute()
-                    if chat_response.get('items'):
-                        live_chat_messages = int(chat_response.get('pageInfo', {}).get('totalResults', 0))
+                    live_chat_messages = chat_response.get('pageInfo', {}).get('totalResults', 0)
                 except Exception as e:
-                    print(f"Error obteniendo chat en vivo: {str(e)}")
+                    logger.error(f"Error al obtener métricas del chat: {str(e)}")
 
             result = {
                 'title': snippet.get('title', 'Sin título'),
@@ -267,10 +263,9 @@ class YouTubeClient:
                 }
             }
             
-            print("Datos del video:", result['video_details'])
-            print("Datos del canal:", result['channel_details'])
-            
+            logger.info(f"Detalles del video procesados exitosamente: {result['title']}")
             return result
+            
         except Exception as e:
-            print(f"Error fetching stream details: {str(e)}")
+            logger.error(f"Error al obtener detalles del stream: {str(e)}")
             return None 

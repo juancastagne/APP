@@ -5,6 +5,10 @@ from datetime import datetime
 @dataclass
 class Stream:
     video_id: str
+    title: str = 'Sin título'
+    channel_name: str = 'Sin canal'
+    thumbnail_url: str = ''
+    current_viewers: int = 0
     last_updated: datetime = datetime.now()
     is_active: bool = True
 
