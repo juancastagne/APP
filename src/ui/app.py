@@ -108,8 +108,21 @@ class StreamViewerApp:
     def load_streams(self):
         """Carga y actualiza la lista de streams."""
         try:
+            # Obtener streams de la base de datos
             self.streams = self.stream_service.get_all_streams()
+            
+            # Actualizar métricas de cada stream
+            for stream in self.streams:
+                updated_stream = self.stream_service.update_stream_metrics(stream.video_id)
+                if updated_stream:
+                    stream.current_viewers = updated_stream.current_viewers
+                    stream.last_updated = updated_stream.last_updated
+            
+            # Actualizar la visualización
             self.update_streams_display()
+            
+            logger.info(f"Streams actualizados: {len(self.streams)}")
+            
         except Exception as e:
             logger.error(f"Error al cargar streams: {str(e)}")
     
