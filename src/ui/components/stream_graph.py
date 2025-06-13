@@ -3,12 +3,14 @@ import plotly.graph_objects as go
 from nicegui import ui
 from datetime import datetime, timedelta
 import pandas as pd
+from src.services.stream_service import StreamService
 
 class StreamGraph:
     def __init__(self):
         self.data: Dict[str, List[Dict]] = {}
         self.fig = go.Figure()
         self.plot = ui.plotly(self.fig).classes('w-full h-96')
+        self.stream_service = StreamService(None)  # Inicializamos sin base de datos ya que solo necesitamos los nombres
         
         # Configuración inicial del gráfico
         self.fig.update_layout(
@@ -44,11 +46,15 @@ class StreamGraph:
         
         for stream_id, points in self.data.items():
             df = pd.DataFrame(points)
+            # Obtener el stream para acceder al nombre del canal
+            stream = self.stream_service.get_stream_details(stream_id)
+            channel_name = stream.channel_name if stream else stream_id
+            
             self.fig.add_trace(
                 go.Scatter(
                     x=df['timestamp'],
                     y=df['viewers'],
-                    name=stream_id,
+                    name=channel_name,
                     mode='lines+markers'
                 )
             )
