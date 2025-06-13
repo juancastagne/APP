@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
 from src.repositories.stream_repository import StreamRepository
-from src.repositories.database import Database
 from sqlalchemy.orm import Session
 from src.core.security import SecurityManager
 
@@ -18,12 +17,8 @@ class StreamService:
     
     def __init__(self, db_session: Session):
         """Inicializa el servicio de streams."""
-        self.youtube_client = YouTubeClient()
-        self.monitored_streams: Dict[str, StreamMetrics] = {}
-        self.last_video_update: Dict[str, datetime] = {}
-        self.last_channel_update: Dict[str, datetime] = {}
-        self.db = Database()
         self.repository = StreamRepository(db_session)
+        self.youtube_client = YouTubeClient()
         self.security_manager = SecurityManager()
 
     @require_api_key

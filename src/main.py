@@ -29,12 +29,15 @@ def main():
         
         # Inicializar la base de datos
         init_db()
+        logger.info("Base de datos inicializada correctamente")
         
         # Crear la aplicación
         app = StreamViewerApp()
+        logger.info("Aplicación creada correctamente")
         
         # Configurar la interfaz
         app.setup_ui()
+        logger.info("Interfaz configurada correctamente")
         
         # Iniciar la aplicación
         ui.run(title="Stream Views", port=8080, host='0.0.0.0')
