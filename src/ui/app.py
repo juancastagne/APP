@@ -158,7 +158,7 @@ class StreamViewerApp:
                         # Información del stream
                         with ui.column().classes('flex-grow gap-2'):
                             ui.label(stream.title).classes('text-xl font-bold')
-                            ui.label(f'Canal: {stream.channel_name}').classes('text-gray-600')
+                            ui.label(stream.channel_name).classes('text-gray-600')
                             
                             # Métricas
                             with ui.row().classes('gap-4 mt-2'):
@@ -174,6 +174,11 @@ class StreamViewerApp:
                         
                         # Botones de acción
                         with ui.column().classes('gap-2'):
+                            ui.button(
+                                'Más detalles',
+                                on_click=lambda s=stream: self.show_stream_details(s)
+                            ).props('flat').classes('text-blue-500')
+                            
                             ui.button(
                                 icon='refresh',
                                 on_click=lambda s=stream: self.refresh_stream(s.video_id)
@@ -224,6 +229,43 @@ class StreamViewerApp:
             
         except Exception as e:
             logger.error(f"Error al actualizar métricas: {str(e)}")
+
+    def show_stream_details(self, stream):
+        """Muestra los detalles completos de un stream."""
+        dialog = ui.dialog()
+        with dialog, ui.card().classes('w-full max-w-2xl'):
+            ui.label('Detalles del Stream').classes('text-xl font-bold mb-4')
+            
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Información básica
+                with ui.column().classes('gap-2'):
+                    ui.label('Información Básica').classes('text-lg font-semibold')
+                    ui.label(f'Título: {stream.title}')
+                    ui.label(f'Canal: {stream.channel_name}')
+                    ui.label(f'Estado: {"Activo" if stream.is_active else "Inactivo"}')
+                    ui.label(f'Creado: {stream.created_at.strftime("%Y-%m-%d %H:%M:%S")}')
+                    ui.label(f'Última actualización: {stream.last_updated.strftime("%Y-%m-%d %H:%M:%S")}')
+                
+                # Métricas actuales
+                with ui.column().classes('gap-2'):
+                    ui.label('Métricas Actuales').classes('text-lg font-semibold')
+                    ui.label(f'Viewers actuales: {stream.current_viewers:,}')
+                    
+                    # Obtener métricas adicionales
+                    metrics = self.stream_service.get_stream_metrics(stream.video_id, limit=1)
+                    if metrics:
+                        latest_metrics = metrics[0]
+                        ui.label(f'Total de vistas: {latest_metrics.total_views:,}')
+                        ui.label(f'Likes: {latest_metrics.like_count:,}')
+                        ui.label(f'Comentarios: {latest_metrics.comment_count:,}')
+                        ui.label(f'Mensajes en chat: {latest_metrics.live_chat_messages:,}')
+                        ui.label(f'Suscriptores: {latest_metrics.subscriber_count:,}')
+            
+            # Botón para cerrar
+            with ui.row().classes('w-full justify-end mt-4'):
+                ui.button('Cerrar', on_click=dialog.close).classes('bg-blue-500 text-white')
+        
+        dialog.open()
 
     def start(self):
         """Inicia la aplicación."""
