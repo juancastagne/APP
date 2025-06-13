@@ -1,64 +1,57 @@
 from typing import List, Optional, Dict
 from datetime import datetime
 import logging
-from .database import Database
 from sqlalchemy.orm import Session
 from ..models.stream_metrics import Stream, StreamMetrics
-
-logger = logging.getLogger(__name__)
+from ..core.logger import logger
 
 class StreamRepository:
-    def __init__(self, db: Database):
-        self.db = db
+    """
+    Repositorio para manejar las operaciones de base de datos relacionadas con streams.
+    """
+    
+    def __init__(self, db_session: Session):
+        self.db = db_session
 
-    def create_stream(self, video_id: str, session_id: str, title: str, channel_id: str,
-                     channel_title: str, thumbnail_url: str, **kwargs) -> Optional[int]:
-        """Crea un nuevo stream en la base de datos"""
+    def create_stream(self, stream: Stream) -> Stream:
+        """
+        Crea un nuevo stream en la base de datos.
+        
+        Args:
+            stream (Stream): Objeto Stream a crear
+            
+        Returns:
+            Stream: Stream creado
+        """
         try:
-            self.db.cursor.execute("""
-                INSERT INTO streams (
-                    video_id, session_id, title, channel_id, channel_title,
-                    thumbnail_url, start_time, status, privacy, license,
-                    embeddable, public_stats_viewable, made_for_kids
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                video_id, session_id, title, channel_id, channel_title,
-                thumbnail_url, kwargs.get('start_time'), kwargs.get('status'),
-                kwargs.get('privacy'), kwargs.get('license'), kwargs.get('embeddable'),
-                kwargs.get('public_stats_viewable'), kwargs.get('made_for_kids')
-            ))
-            self.db.conn.commit()
-            return self.db.cursor.lastrowid
+            self.db.add(stream)
+            self.db.commit()
+            self.db.refresh(stream)
+            logger.info(f"Stream creado: {stream.video_id}")
+            return stream
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Error al crear stream: {str(e)}")
-            return None
+            raise
 
-    def update_stream(self, stream_id: int, **kwargs) -> bool:
-        """Actualiza los datos de un stream"""
+    def update_stream(self, stream: Stream) -> Stream:
+        """
+        Actualiza un stream existente.
+        
+        Args:
+            stream (Stream): Stream a actualizar
+            
+        Returns:
+            Stream: Stream actualizado
+        """
         try:
-            update_fields = []
-            values = []
-            for key, value in kwargs.items():
-                if value is not None:
-                    update_fields.append(f"{key} = ?")
-                    values.append(value)
-            
-            if not update_fields:
-                return True
-
-            values.append(stream_id)
-            query = f"""
-                UPDATE streams 
-                SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """
-            
-            self.db.cursor.execute(query, values)
-            self.db.conn.commit()
-            return True
+            self.db.commit()
+            self.db.refresh(stream)
+            return stream
         except Exception as e:
-            logger.error(f"Error al actualizar stream {stream_id}: {str(e)}")
-            return False
+            self.db.rollback()
+            logger.error(f"Error al actualizar stream {stream.video_id}: {str(e)}")
+            raise
 
     def save_stream_metrics(self, stream_id: int, metrics: Dict) -> bool:
         """Guarda las métricas de un stream"""
@@ -132,36 +125,17 @@ class StreamRepository:
             logger.error(f"Error al obtener streams activos: {str(e)}")
             return []
 
-    def get_all_streams(self) -> List[Dict]:
-        """Obtiene todos los streams de la base de datos"""
+    def get_all_streams(self) -> List[Stream]:
+        """
+        Obtiene todos los streams activos.
+        
+        Returns:
+            List[Stream]: Lista de streams activos
+        """
         try:
-            self.db.cursor.execute("""
-                SELECT s.*, 
-                       COALESCE(sm.current_viewers, 0) as current_viewers,
-                       COALESCE(sm.total_views, 0) as total_views,
-                       COALESCE(sm.like_count, 0) as like_count,
-                       COALESCE(sm.comment_count, 0) as comment_count,
-                       COALESCE(sm.live_chat_messages, 0) as live_chat_messages,
-                       COALESCE(sm.subscriber_count, 0) as subscriber_count
-                FROM streams s
-                LEFT JOIN (
-                    SELECT stream_id, 
-                           current_viewers,
-                           total_views,
-                           like_count,
-                           comment_count,
-                           live_chat_messages,
-                           subscriber_count,
-                           ROW_NUMBER() OVER (PARTITION BY stream_id ORDER BY timestamp DESC) as rn
-                    FROM stream_metrics
-                ) sm ON s.id = sm.stream_id AND sm.rn = 1
-                ORDER BY s.created_at DESC
-            """)
-            
-            columns = [description[0] for description in self.db.cursor.description]
-            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+            return self.db.query(Stream).filter(Stream.is_active == True).all()
         except Exception as e:
-            logger.error(f"Error al obtener todos los streams: {str(e)}")
+            logger.error(f"Error al obtener streams: {str(e)}")
             return []
 
     def get_stream_by_id(self, video_id: str) -> Optional[Stream]:

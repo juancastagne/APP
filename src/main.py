@@ -4,6 +4,10 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 from nicegui import ui
+from .core.config import Config
+from .core.database import init_db
+from .core.logger import logger
+from .ui.app import StreamViewerApp
 
 # Agregar el directorio raíz al path de Python
 root_dir = Path(__file__).parent.parent
@@ -13,23 +17,31 @@ sys.path.append(str(root_dir))
 env_path = root_dir.parent / '.env'
 load_dotenv(env_path)
 
-from src.ui.app import StreamViewerApp
-
-logger = logging.getLogger(__name__)
-
 def main():
+    """
+    Función principal que inicia la aplicación.
+    """
     try:
-        # Inicializar la aplicación
+        # Validar la configuración
+        if not Config.validate():
+            logger.error("Error en la configuración de la aplicación")
+            return
+        
+        # Inicializar la base de datos
+        init_db()
+        
+        # Crear la aplicación
         app = StreamViewerApp()
         
-        # Obtener el puerto de la variable de entorno o usar 8080 por defecto
-        port = int(os.getenv('PORT', 8080))
+        # Configurar la interfaz
+        app.setup_ui()
         
-        # Iniciar el servidor
-        ui.run(port=port, host='0.0.0.0', show=False)
+        # Iniciar la aplicación
+        ui.run(title="Stream Views", port=8080)
+        
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
         raise
 
-# Ejecutar main() directamente
-main() 
+if __name__ == "__main__":
+    main() 

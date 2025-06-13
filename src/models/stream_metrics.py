@@ -1,109 +1,67 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy.orm import relationship
+from ..core.database import Base
 
-@dataclass
-class Stream:
-    video_id: str
-    title: str = 'Sin título'
-    channel_name: str = 'Sin canal'
-    thumbnail_url: str = ''
-    current_viewers: int = 0
-    last_updated: datetime = datetime.now()
-    is_active: bool = True
-
-    def __init__(self, video_id: str):
-        self.video_id = video_id
-        self.last_updated = datetime.now()
-        self.is_active = True
-
-@dataclass
-class StreamMetrics:
-    video_id: str
-    title: str
-    channel_title: str
-    thumbnail_url: str
-    current_viewers: int
-    total_views: int
-    like_count: int
-    comment_count: int
-    live_chat_messages: int
-    subscriber_count: int
-    additional_metrics: Dict[str, any]
-    metrics_history: List[Dict[str, any]]
-    last_updated: datetime
-
-    def __init__(self, video_id: str, title: str, channel_title: str, thumbnail_url: str,
-                 current_viewers: int, total_views: int, like_count: int, comment_count: int,
-                 live_chat_messages: int, subscriber_count: int, additional_metrics: Optional[Dict[str, any]] = None):
+class Stream(Base):
+    """
+    Modelo para representar un stream de YouTube.
+    """
+    __tablename__ = 'streams'
+    
+    id = Column(Integer, primary_key=True)
+    video_id = Column(String(50), unique=True, nullable=False)
+    title = Column(String(200))
+    channel_name = Column(String(100))
+    thumbnail_url = Column(String(200))
+    current_viewers = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    last_updated = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relación con las métricas
+    metrics = relationship("StreamMetrics", back_populates="stream", cascade="all, delete-orphan")
+    
+    def __init__(self, video_id: str, title: str = None, channel_name: str = None, 
+                 thumbnail_url: str = None, current_viewers: int = 0, is_active: bool = True):
         self.video_id = video_id
         self.title = title
-        self.channel_title = channel_title
+        self.channel_name = channel_name
         self.thumbnail_url = thumbnail_url
         self.current_viewers = current_viewers
-        self.total_views = total_views
-        self.like_count = like_count
-        self.comment_count = comment_count
-        self.live_chat_messages = live_chat_messages
-        self.subscriber_count = subscriber_count
-        self.metrics_history = []
-        self.last_updated = datetime.now()
-        # Asegurarnos de que additional_metrics contiene video_details y channel_details
-        self.additional_metrics = {
-            'video_details': additional_metrics.get('video_details', {}),
-            'channel_details': additional_metrics.get('channel_details', {}),
-            'start_time': additional_metrics.get('start_time'),
-            'end_time': additional_metrics.get('end_time'),
-            'scheduled_start': additional_metrics.get('scheduled_start'),
-            'scheduled_end': additional_metrics.get('scheduled_end'),
-            'chat_id': additional_metrics.get('chat_id'),
-            'duration': additional_metrics.get('duration'),
-            'status': additional_metrics.get('status'),
-            'privacy': additional_metrics.get('privacy'),
-            'license': additional_metrics.get('license'),
-            'embeddable': additional_metrics.get('embeddable'),
-            'public_stats_viewable': additional_metrics.get('public_stats_viewable'),
-            'made_for_kids': additional_metrics.get('made_for_kids'),
-            'topics': additional_metrics.get('topics', [])
-        } if additional_metrics else {}
+        self.is_active = is_active
+        self.last_updated = datetime.utcnow()
+        self.created_at = datetime.utcnow()
 
-    def update_metrics(self, current_viewers: int, total_views: int, like_count: int, comment_count: int,
-                      live_chat_messages: int, subscriber_count: int, additional_metrics: Optional[Dict[str, any]] = None):
+class StreamMetrics(Base):
+    """
+    Modelo para almacenar las métricas de un stream.
+    """
+    __tablename__ = 'stream_metrics'
+    
+    id = Column(Integer, primary_key=True)
+    video_id = Column(String(50), ForeignKey('streams.video_id'), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    current_viewers = Column(Integer)
+    total_views = Column(Integer)
+    like_count = Column(Integer)
+    comment_count = Column(Integer)
+    live_chat_messages = Column(Integer)
+    subscriber_count = Column(Integer)
+    additional_metrics = Column(JSON)
+    
+    # Relación con el stream
+    stream = relationship("Stream", back_populates="metrics")
+    
+    def __init__(self, video_id: str, current_viewers: int = 0, total_views: int = 0,
+                 like_count: int = 0, comment_count: int = 0, live_chat_messages: int = 0,
+                 subscriber_count: int = 0, additional_metrics: dict = None):
+        self.video_id = video_id
+        self.timestamp = datetime.utcnow()
         self.current_viewers = current_viewers
         self.total_views = total_views
         self.like_count = like_count
         self.comment_count = comment_count
         self.live_chat_messages = live_chat_messages
         self.subscriber_count = subscriber_count
-        self.last_updated = datetime.now()
-        
-        if additional_metrics:
-            # Actualizar manteniendo la estructura
-            self.additional_metrics = {
-                'video_details': additional_metrics.get('video_details', self.additional_metrics.get('video_details', {})),
-                'channel_details': additional_metrics.get('channel_details', self.additional_metrics.get('channel_details', {})),
-                'start_time': additional_metrics.get('start_time', self.additional_metrics.get('start_time')),
-                'end_time': additional_metrics.get('end_time', self.additional_metrics.get('end_time')),
-                'scheduled_start': additional_metrics.get('scheduled_start', self.additional_metrics.get('scheduled_start')),
-                'scheduled_end': additional_metrics.get('scheduled_end', self.additional_metrics.get('scheduled_end')),
-                'chat_id': additional_metrics.get('chat_id', self.additional_metrics.get('chat_id')),
-                'duration': additional_metrics.get('duration', self.additional_metrics.get('duration')),
-                'status': additional_metrics.get('status', self.additional_metrics.get('status')),
-                'privacy': additional_metrics.get('privacy', self.additional_metrics.get('privacy')),
-                'license': additional_metrics.get('license', self.additional_metrics.get('license')),
-                'embeddable': additional_metrics.get('embeddable', self.additional_metrics.get('embeddable')),
-                'public_stats_viewable': additional_metrics.get('public_stats_viewable', self.additional_metrics.get('public_stats_viewable')),
-                'made_for_kids': additional_metrics.get('made_for_kids', self.additional_metrics.get('made_for_kids')),
-                'topics': additional_metrics.get('topics', self.additional_metrics.get('topics', []))
-            }
-        
-        self.metrics_history.append({
-            'timestamp': self.last_updated,
-            'current_viewers': current_viewers,
-            'total_views': total_views,
-            'like_count': like_count,
-            'comment_count': comment_count,
-            'live_chat_messages': live_chat_messages,
-            'subscriber_count': subscriber_count,
-            'additional_metrics': self.additional_metrics
-        }) 
+        self.additional_metrics = additional_metrics or {} 
