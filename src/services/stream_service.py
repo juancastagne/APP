@@ -88,7 +88,7 @@ class StreamService:
         """
         try:
             # Validar el ID del video
-            if not security_manager.validate_video_id(video_id):
+            if not self.security_manager.validate_video_id(video_id):
                 logger.warning(f"Intento de actualizar stream con ID inválido: {video_id}")
                 return None
             
@@ -98,14 +98,18 @@ class StreamService:
                 logger.warning(f"Stream {video_id} no encontrado")
                 return None
             
-            # Actualizar métricas
-            # Aquí iría la lógica de actualización de métricas
-            # Por ahora solo actualizamos el timestamp
-            stream.last_updated = datetime.now()
-            self.repository.save_stream(stream)
+            # Obtener métricas actualizadas
+            video_details = self.youtube_client.get_stream_details_old(video_id)
+            if not video_details:
+                logger.error(f"No se pudieron obtener los detalles del video {video_id}")
+                return None
             
-            logger.debug(f"Métricas del stream {video_id} actualizadas")
-            return stream
+            # Actualizar métricas
+            stream.current_viewers = video_details.get('current_viewers', 0)
+            stream.last_updated = datetime.now()
+            
+            # Guardar cambios usando update_stream
+            return self.repository.update_stream(stream)
             
         except Exception as e:
             logger.error(f"Error al actualizar métricas del stream {video_id}: {str(e)}")
