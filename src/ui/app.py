@@ -1,7 +1,7 @@
 from nicegui import ui # type: ignore
-from src.services.stream_service import StreamService
-from src.core.logger import logger
-from src.core.database import get_db
+from ..core.logger import logger
+from ..core.database import get_db
+from ..services.stream_service import StreamService
 import asyncio
 from datetime import datetime
 from collections import defaultdict
