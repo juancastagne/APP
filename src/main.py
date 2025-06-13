@@ -37,11 +37,11 @@ def main():
         app.setup_ui()
         
         # Iniciar la aplicación
-        ui.run(title="Stream Views", port=8080)
+        ui.run(title="Stream Views", port=8080, host='0.0.0.0')
         
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
         raise
 
-if __name__ == "__main__":
-    main() 
+# Ejecutar main() directamente
+main() 
