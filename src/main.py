@@ -35,12 +35,8 @@ def main():
         app = StreamViewerApp()
         logger.info("Aplicación creada correctamente")
         
-        # Configurar la interfaz
-        app.setup_ui()
-        logger.info("Interfaz configurada correctamente")
-        
         # Iniciar la aplicación
-        ui.run(title="Stream Views", port=8080, host='0.0.0.0')
+        app.start()
         
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")

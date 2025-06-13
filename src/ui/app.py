@@ -181,6 +181,20 @@ class StreamViewerApp:
             logger.error(f"Error al eliminar stream: {str(e)}")
             ui.notify('Error al eliminar el stream', type='negative')
 
+    def start(self):
+        """Inicia la aplicación."""
+        try:
+            self.setup_ui()
+            ui.run(
+                title='Stream Views',
+                favicon='🎥',
+                port=8080,
+                host='0.0.0.0'
+            )
+        except Exception as e:
+            logger.error(f"Error al iniciar la aplicación: {str(e)}")
+            raise
+
 if __name__ in {"__main__", "__mp_main__"}:
     app = StreamViewerApp()
     app.start() 
