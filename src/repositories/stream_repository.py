@@ -2,6 +2,8 @@ from typing import List, Optional, Dict
 from datetime import datetime
 import logging
 from .database import Database
+from sqlalchemy.orm import Session
+from ..models.stream_metrics import Stream, StreamMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -160,4 +162,84 @@ class StreamRepository:
             return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
         except Exception as e:
             logger.error(f"Error al obtener todos los streams: {str(e)}")
+            return []
+
+    def get_stream_by_id(self, video_id: str) -> Optional[Stream]:
+        """
+        Obtiene un stream por su video_id.
+        
+        Args:
+            video_id (str): ID del video de YouTube
+            
+        Returns:
+            Optional[Stream]: Stream encontrado o None si no existe
+        """
+        try:
+            return self.db.query(Stream).filter(Stream.video_id == video_id).first()
+        except Exception as e:
+            logger.error(f"Error al obtener stream {video_id}: {str(e)}")
+            return None
+
+    def delete_stream(self, video_id: str) -> bool:
+        """
+        Elimina un stream por su video_id.
+        
+        Args:
+            video_id (str): ID del video de YouTube
+            
+        Returns:
+            bool: True si se eliminó correctamente, False en caso contrario
+        """
+        try:
+            stream = self.get_stream_by_id(video_id)
+            if stream:
+                self.db.delete(stream)
+                self.db.commit()
+                logger.info(f"Stream eliminado: {video_id}")
+                return True
+            return False
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
+            return False
+
+    def add_metrics(self, metrics: StreamMetrics) -> StreamMetrics:
+        """
+        Agrega nuevas métricas para un stream.
+        
+        Args:
+            metrics (StreamMetrics): Métricas a agregar
+            
+        Returns:
+            StreamMetrics: Métricas agregadas
+        """
+        try:
+            self.db.add(metrics)
+            self.db.commit()
+            self.db.refresh(metrics)
+            return metrics
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error al agregar métricas para stream {metrics.video_id}: {str(e)}")
+            raise
+
+    def get_stream_metrics(self, video_id: str, limit: int = 100) -> List[StreamMetrics]:
+        """
+        Obtiene las métricas históricas de un stream.
+        
+        Args:
+            video_id (str): ID del video de YouTube
+            limit (int): Límite de métricas a obtener
+            
+        Returns:
+            List[StreamMetrics]: Lista de métricas
+        """
+        try:
+            return self.db.query(StreamMetrics)\
+                .filter(StreamMetrics.video_id == video_id)\
+                .order_by(StreamMetrics.timestamp.desc())\
+                .limit(limit)\
+                .all()
+        except Exception as e:
+            logger.error(f"Error al obtener métricas para stream {video_id}: {str(e)}")
             return [] 
