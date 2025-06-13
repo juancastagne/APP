@@ -47,8 +47,14 @@ class StreamViewerApp:
         """Configura la interfaz de usuario principal."""
         try:
             with ui.column().classes('w-full max-w-7xl mx-auto p-4'):
-                # Título
-                ui.label('Stream Views').classes('text-3xl font-bold mb-8')
+                # Título y botón de agregar stream
+                with ui.row().classes('w-full justify-between items-center mb-8'):
+                    ui.label('Stream Views').classes('text-3xl font-bold')
+                    with ui.dialog() as dialog, ui.card():
+                        ui.label('Agregar Stream').classes('text-xl font-bold mb-4')
+                        video_id = ui.input('ID del Video de YouTube').classes('w-full')
+                        ui.button('Agregar', on_click=lambda: self.add_stream(video_id.value)).classes('mt-4')
+                    ui.button('Agregar Stream', on_click=dialog.open).classes('bg-blue-500 text-white')
                 
                 # Gráfico principal
                 self.main_chart = ui.echart({
@@ -275,27 +281,30 @@ class StreamViewerApp:
 
     def add_stream(self, video_id: str):
         """
-        Agrega un nuevo stream a la aplicación.
+        Agrega un nuevo stream al monitoreo.
         
         Args:
             video_id (str): ID del video de YouTube a monitorear
         """
         try:
             if not video_id:
-                ui.notify('Por favor ingrese un ID de video válido', type='negative')
+                ui.notify('Por favor ingresa un ID de video válido', type='negative')
                 return
                 
+            # Verificar si el stream ya existe
+            if video_id in [stream.video_id for stream in self.stream_service.get_all_streams()]:
+                ui.notify('Este stream ya está siendo monitoreado', type='warning')
+                return
+            
             # Intentar agregar el stream
-            stream = self.stream_service.add_stream(video_id)
-            if stream:
-                ui.notify(f'Stream agregado: {stream.title}', type='positive')
-                # Actualizar la interfaz
+            if self.stream_service.add_stream(video_id):
+                ui.notify('Stream agregado exitosamente', type='positive')
                 self.update_streams()
             else:
-                ui.notify('No se pudo agregar el stream. Verifique el ID del video.', type='negative')
+                ui.notify('No se pudo agregar el stream. Verifica el ID.', type='negative')
                 
         except Exception as e:
-            logger.error(f"Error al agregar stream: {str(e)}")
+            logger.error(f"Error al agregar stream {video_id}: {str(e)}")
             ui.notify('Error al agregar el stream', type='negative')
 
 if __name__ in {"__main__", "__mp_main__"}:
