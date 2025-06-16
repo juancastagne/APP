@@ -1,48 +1,65 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from motor.motor_asyncio import AsyncIOMotorClient # type: ignore
+from pymongo import MongoClient # type: ignore
+from typing import Optional
 import os
-from .config import Config
-from .logger import logger
+from dotenv import load_dotenv
+import logging
 
-# Obtener la ruta de la base de datos
-db_path = Config.DATABASE_URL.replace('sqlite:///', '')
+# Configurar el logger
+logger = logging.getLogger(__name__)
 
-# Crear el motor de la base de datos
-engine = create_engine(Config.DATABASE_URL)
+# Cargar variables de entorno
+load_dotenv()
 
-# Crear la sesión
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+class Database:
+    client: Optional[AsyncIOMotorClient] = None
+    db = None
 
-# Crear la base para los modelos
-Base = declarative_base()
+    @classmethod
+    async def connect_to_database(cls):
+        """Conecta a la base de datos MongoDB."""
+        if cls.client is None:
+            mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+            cls.client = AsyncIOMotorClient(mongo_url)
+            cls.db = cls.client.stream_views
+            logger.info("Conectado a MongoDB!")
+
+    @classmethod
+    async def close_database_connection(cls):
+        """Cierra la conexión a la base de datos."""
+        if cls.client is not None:
+            cls.client.close()
+            cls.client = None
+            logger.info("Conexión a MongoDB cerrada!")
+
+    @classmethod
+    def get_database(cls):
+        """Retorna la instancia de la base de datos."""
+        return cls.db
+
+# Obtener la URL de MongoDB desde las variables de entorno
+MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://localhost:27017')
+
+# Cliente síncrono para operaciones que no requieren async
+client = MongoClient(MONGODB_URL)
+db = client.stream_views
+
+# Cliente asíncrono para operaciones que requieren async
+async_client = AsyncIOMotorClient(MONGODB_URL)
+async_db = async_client.stream_views
 
 def get_db():
-    """
-    Obtiene una sesión de base de datos.
-    
-    Returns:
-        Session: Sesión de base de datos
-    """
-    db = SessionLocal()
+    """Obtiene la instancia de la base de datos."""
     try:
         yield db
-    finally:
-        db.close()
-
-def init_db():
-    """
-    Inicializa la base de datos creando todas las tablas.
-    """
-    try:
-        # Si la base de datos existe, eliminarla
-        if os.path.exists(db_path):
-            logger.info(f"Eliminando base de datos existente: {db_path}")
-            os.remove(db_path)
-        
-        # Crear todas las tablas
-        Base.metadata.create_all(bind=engine)
-        logger.info("Base de datos inicializada correctamente")
     except Exception as e:
-        logger.error(f"Error al inicializar la base de datos: {str(e)}")
+        logger.error(f"Error al conectar con la base de datos: {str(e)}")
+        raise
+
+async def get_async_db():
+    """Obtiene la instancia asíncrona de la base de datos."""
+    try:
+        yield async_db
+    except Exception as e:
+        logger.error(f"Error al conectar con la base de datos asíncrona: {str(e)}")
         raise 

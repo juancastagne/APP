@@ -8,6 +8,11 @@ from .core.config import Config
 from .core.database import init_db
 from .core.logger import logger
 from .ui.app import StreamViewerApp
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from src.routes import auth_routes
+from src.services.data_processor import DataProcessor
+import uvicorn
 
 # Agregar el directorio raíz al path de Python
 root_dir = Path(__file__).parent.parent
@@ -43,4 +48,40 @@ def main():
         raise
 
 # Ejecutar main() directamente
-main() 
+main()
+
+app = FastAPI(title="Stream Views API")
+
+# Configuración CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Incluir rutas
+app.include_router(auth_routes.router)
+
+# Inicializar servicios
+data_processor = DataProcessor()
+
+@app.get("/health")
+async def health_check():
+    """Endpoint para verificar el estado de la API"""
+    return {"status": "ok"}
+
+@app.on_event("startup")
+async def startup_event():
+    """Evento que se ejecuta al iniciar la aplicación"""
+    # Aquí puedes agregar código de inicialización
+    pass
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", 8000)),
+        reload=True
+    ) 
