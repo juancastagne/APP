@@ -10,7 +10,7 @@ class StreamGraph:
         self.data: Dict[str, List[Dict]] = {}
         self.fig = go.Figure()
         self.plot = ui.plotly(self.fig).classes('w-full h-96')
-        self.stream_service = StreamService(None)  # Inicializamos sin base de datos ya que solo necesitamos los nombres
+        self.stream_service = StreamService()  # Inicializamos el servicio sin parámetros
         
         # Configuración inicial del gráfico
         self.fig.update_layout(
