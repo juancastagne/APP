@@ -10,11 +10,9 @@ def validate_object_id(v: Any) -> ObjectId:
         raise ValueError("Invalid ObjectId")
     return ObjectId(v)
 
-PyObjectId = Annotated[ObjectId, BeforeValidator(validate_object_id)]
-
 class StreamMetrics(BaseModel):
     """Modelo para las métricas de un stream."""
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: Optional[ObjectId] = Field(alias="_id", default=None)
     stream_id: str
     concurrent_viewers: int
     total_views: int
@@ -26,12 +24,13 @@ class StreamMetrics(BaseModel):
 
     model_config = {
         "json_encoders": {ObjectId: str},
-        "populate_by_name": True
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
     }
 
 class Stream(BaseModel):
     """Modelo para un stream de YouTube."""
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: Optional[ObjectId] = Field(alias="_id", default=None)
     video_id: str
     title: str
     channel_name: str
@@ -43,5 +42,6 @@ class Stream(BaseModel):
 
     model_config = {
         "json_encoders": {ObjectId: str},
-        "populate_by_name": True
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
     } 
