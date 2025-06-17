@@ -201,8 +201,11 @@ class StreamService:
             List[Stream]: Lista de streams activos
         """
         try:
-            streams = list(self.db.streams.find())
-            return [Stream(**stream) for stream in streams]
+            cursor = self.db.streams.find()
+            streams = []
+            for stream_data in cursor:
+                streams.append(Stream(**stream_data))
+            return streams
         except Exception as e:
             logger.error(f"Error al obtener streams: {str(e)}")
             return []

@@ -45,8 +45,17 @@ def main():
         app = StreamViewerApp()
         logger.info("Aplicación creada correctamente")
         
+        # Configurar la interfaz de usuario
+        app.setup_ui()
+        
         # Iniciar la aplicación
-        app.start()
+        ui.run(
+            host='0.0.0.0',
+            port=int(os.getenv('PORT', 8080)),
+            title='Stream Views',
+            favicon='🎥',
+            reload=False
+        )
         
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
@@ -56,5 +65,5 @@ def main():
         asyncio.run(close_database())
 
 # Ejecutar main() directamente
-if __name__ == "__main__":
+if __name__ in {"__main__", "__mp_main__"}:
     main() 
