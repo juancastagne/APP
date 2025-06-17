@@ -24,7 +24,7 @@ class StreamViewerApp:
         self.streams = []
         self.stream_graph = StreamGraph()
         self.streams_container = None
-        self._loop = asyncio.get_event_loop()
+        self._loop = None
         logger.info("Iniciando aplicación Stream Views")
     
     def setup_ui(self):
@@ -48,13 +48,17 @@ class StreamViewerApp:
                 self.streams_container = ui.column().classes('w-full gap-4')
                 
                 # Cargar streams iniciales
-                asyncio.create_task(self.load_streams())
+                ui.timer(0.1, self._load_streams_initial, once=True)
                 
             logger.info("Interfaz de usuario iniciada correctamente")
             
         except Exception as e:
             logger.error(f"Error al configurar la interfaz: {str(e)}")
             raise
+    
+    def _load_streams_initial(self):
+        """Carga los streams iniciales usando un timer."""
+        asyncio.run(self.load_streams())
     
     def show_add_dialog(self):
         """Muestra el diálogo para agregar un nuevo stream."""
