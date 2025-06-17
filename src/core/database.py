@@ -3,10 +3,7 @@ from pymongo import MongoClient # type: ignore
 from typing import Optional
 import os
 from dotenv import load_dotenv
-import logging
-
-# Configurar el logger
-logger = logging.getLogger(__name__)
+from ..core.logger import logger
 
 # Cargar variables de entorno
 load_dotenv()
@@ -22,7 +19,7 @@ class Database:
             mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
             cls.client = AsyncIOMotorClient(mongo_url)
             cls.db = cls.client.stream_views
-            logger.info("Conectado a MongoDB!")
+            print("Conectado a MongoDB!")
 
     @classmethod
     async def close_database_connection(cls):
@@ -30,7 +27,7 @@ class Database:
         if cls.client is not None:
             cls.client.close()
             cls.client = None
-            logger.info("Conexión a MongoDB cerrada!")
+            print("Conexión a MongoDB cerrada!")
 
     @classmethod
     def get_database(cls):
