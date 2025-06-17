@@ -16,12 +16,16 @@ class Database:
         """Conecta a la base de datos MongoDB."""
         try:
             if cls.client is None:
-                mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+                # Usar la URL de MongoDB Atlas desde las variables de entorno
+                mongo_url = os.getenv("MONGODB_URI")
+                if not mongo_url:
+                    raise ValueError("MONGODB_URI no está configurada en las variables de entorno")
+                
                 cls.client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
                 # Verificar la conexión
                 await cls.client.admin.command('ping')
                 cls.db = cls.client.stream_views
-                logger.info("Conectado a MongoDB!")
+                logger.info("Conectado a MongoDB Atlas!")
         except Exception as e:
             logger.error(f"Error al conectar con MongoDB: {str(e)}")
             raise
