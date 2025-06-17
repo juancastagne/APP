@@ -23,23 +23,14 @@ class StreamService:
         """Inicializa el servicio de streams."""
         self.youtube_client = YouTubeClient()
         self.security_manager = security_manager
-        self._loop = None
         self._db = None
+        self._loop = asyncio.get_event_loop()
 
     async def _ensure_db(self):
         """Asegura que la conexión a la base de datos esté establecida."""
         if self._db is None:
             await Database.connect_to_database()
             self._db = Database.get_database()
-
-    def _get_loop(self):
-        """Obtiene o crea un bucle de eventos."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop
 
     async def get_all_streams(self) -> List[Stream]:
         """

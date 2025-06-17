@@ -22,35 +22,33 @@ class StreamViewerApp:
         """Inicializa la aplicación."""
         self.stream_service = StreamService()
         self.streams = []
-        self.update_timer = None
         self.stream_graph = StreamGraph()
+        self.streams_container = None
+        self._loop = asyncio.get_event_loop()
         logger.info("Iniciando aplicación Stream Views")
     
     def setup_ui(self):
         """Configura la interfaz de usuario."""
         try:
-            # Configurar el tema
+            # Configurar el tema y estilos
             ui.query('body').classes('bg-gray-100')
             
             # Contenedor principal
-            with ui.column().classes('w-full max-w-7xl mx-auto p-4'):
-                # Título y botón de agregar
-                with ui.row().classes('w-full justify-between items-center mb-4'):
-                    ui.label('Stream Views').classes('text-2xl font-bold')
-                    ui.button('Agregar Stream', on_click=self.show_add_dialog).classes('bg-blue-500 text-white')
+            with ui.column().classes('w-full max-w-7xl mx-auto p-4 gap-4'):
+                # Título
+                ui.label('Stream Views').classes('text-3xl font-bold text-center mb-4')
+                
+                # Botón para agregar stream
+                ui.button('Agregar Stream', on_click=self.show_add_dialog).classes('bg-blue-500 text-white')
                 
                 # Gráfico de streams
-                with ui.card().classes('w-full mb-4'):
-                    self.stream_graph.plot
+                self.stream_graph.setup()
                 
-                # Lista de streams
+                # Contenedor de streams
                 self.streams_container = ui.column().classes('w-full gap-4')
                 
                 # Cargar streams iniciales
-                self.load_streams()
-                
-                # Configurar actualización automática cada 30 segundos
-                self.update_timer = ui.timer(30.0, self.load_streams)
+                asyncio.create_task(self.load_streams())
                 
             logger.info("Interfaz de usuario iniciada correctamente")
             
