@@ -4,9 +4,8 @@ from src.core.youtube_client import YouTubeClient
 from datetime import datetime, timedelta
 from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
-from src.repositories.stream_repository import StreamRepository
-from sqlalchemy.orm import Session
-from src.core.security import SecurityManager
+from src.core.database import Database
+from bson import ObjectId
 
 class StreamService:
     """
@@ -15,11 +14,11 @@ class StreamService:
     Este servicio implementa medidas de seguridad y validación de datos.
     """
     
-    def __init__(self, db_session: Session):
+    def __init__(self):
         """Inicializa el servicio de streams."""
-        self.repository = StreamRepository(db_session)
         self.youtube_client = YouTubeClient()
-        self.security_manager = SecurityManager()
+        self.security_manager = security_manager
+        self.db = Database.db
 
     @require_api_key
     @rate_limit
@@ -40,10 +39,10 @@ class StreamService:
                 return None
             
             # Verificar si el stream ya existe
-            existing_stream = self.repository.get_stream_by_id(video_id)
+            existing_stream = self.db.streams.find_one({"video_id": video_id})
             if existing_stream:
                 logger.warning(f"El stream {video_id} ya está siendo monitoreado")
-                return existing_stream
+                return Stream(**existing_stream)
             
             # Obtener detalles del video
             video_details = self.youtube_client.get_stream_details_old(video_id)
@@ -61,7 +60,9 @@ class StreamService:
             )
             
             # Guardar el stream
-            return self.repository.create_stream(stream)
+            result = self.db.streams.insert_one(stream.model_dump(by_alias=True))
+            stream.id = result.inserted_id
+            return stream
             
         except Exception as e:
             logger.error(f"Error al agregar stream {video_id}: {str(e)}")
@@ -69,10 +70,12 @@ class StreamService:
 
     def remove_stream(self, video_id: str) -> bool:
         """Elimina un stream del monitoreo"""
-        if video_id in self.monitored_streams:
-            del self.monitored_streams[video_id]
-            return True
-        return False
+        try:
+            result = self.db.streams.delete_one({"video_id": video_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
+            return False
 
     @require_api_key
     @rate_limit
@@ -93,10 +96,12 @@ class StreamService:
                 return None
             
             # Obtener stream actual
-            stream = self.repository.get_stream_by_id(video_id)
-            if not stream:
+            stream_data = self.db.streams.find_one({"video_id": video_id})
+            if not stream_data:
                 logger.warning(f"Stream {video_id} no encontrado")
                 return None
+            
+            stream = Stream(**stream_data)
             
             # Obtener métricas actualizadas
             video_details = self.youtube_client.get_stream_details_old(video_id)
@@ -108,8 +113,13 @@ class StreamService:
             stream.current_viewers = video_details.get('current_viewers', 0)
             stream.last_updated = datetime.now()
             
-            # Guardar cambios usando update_stream
-            return self.repository.update_stream(stream)
+            # Guardar cambios
+            self.db.streams.update_one(
+                {"video_id": video_id},
+                {"$set": stream.model_dump(by_alias=True)}
+            )
+            
+            return stream
             
         except Exception as e:
             logger.error(f"Error al actualizar métricas del stream {video_id}: {str(e)}")
@@ -127,11 +137,14 @@ class StreamService:
         """
         try:
             # Validar el ID del video
-            if not security_manager.validate_video_id(video_id):
+            if not self.security_manager.validate_video_id(video_id):
                 logger.warning(f"Intento de obtener detalles de stream con ID inválido: {video_id}")
                 return None
             
-            return self.repository.get_stream_by_id(video_id)
+            stream_data = self.db.streams.find_one({"video_id": video_id})
+            if stream_data:
+                return Stream(**stream_data)
+            return None
         except Exception as e:
             logger.error(f"Error al obtener detalles del stream {video_id}: {str(e)}")
             return None
@@ -154,21 +167,20 @@ class StreamService:
             
             # Crear métricas
             metrics = StreamMetrics(
-                video_id=video_id,
-                current_viewers=video_details.get('current_viewers', 0),
+                stream_id=video_id,
+                concurrent_viewers=video_details.get('current_viewers', 0),
                 total_views=video_details.get('total_views', 0),
                 like_count=video_details.get('like_count', 0),
                 comment_count=video_details.get('comment_count', 0),
                 live_chat_messages=video_details.get('live_chat_messages', 0),
-                subscriber_count=video_details.get('subscriber_count', 0),
-                additional_metrics=video_details
+                subscriber_count=video_details.get('subscriber_count', 0)
             )
             
             # Guardar métricas
-            self.repository.add_metrics(metrics)
+            self.db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
             
             return {
-                'current_viewers': metrics.current_viewers,
+                'current_viewers': metrics.concurrent_viewers,
                 'total_views': metrics.total_views,
                 'like_count': metrics.like_count,
                 'comment_count': metrics.comment_count,
@@ -189,7 +201,8 @@ class StreamService:
             List[Stream]: Lista de streams activos
         """
         try:
-            return self.repository.get_all_streams()
+            streams = list(self.db.streams.find())
+            return [Stream(**stream) for stream in streams]
         except Exception as e:
             logger.error(f"Error al obtener streams: {str(e)}")
             return []
@@ -205,7 +218,8 @@ class StreamService:
             bool: True si se eliminó correctamente, False en caso contrario
         """
         try:
-            return self.repository.delete_stream(video_id)
+            result = self.db.streams.delete_one({"video_id": video_id})
+            return result.deleted_count > 0
         except Exception as e:
             logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
             return False 
