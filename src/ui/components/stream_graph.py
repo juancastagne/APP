@@ -9,8 +9,8 @@ class StreamGraph:
     def __init__(self):
         self.data: Dict[str, List[Dict]] = {}
         self.fig = go.Figure()
-        self.plot = ui.plotly(self.fig).classes('w-full h-96')
-        self.stream_service = StreamService()  # Inicializamos el servicio sin parámetros
+        self.plot = None  # Inicializamos como None
+        self.stream_service = StreamService()
         
         # Configuración inicial del gráfico
         self.fig.update_layout(
@@ -20,6 +20,10 @@ class StreamGraph:
             showlegend=True,
             template='plotly_dark'
         )
+        
+    def setup(self):
+        """Configura el gráfico en la interfaz."""
+        self.plot = ui.plotly(self.fig).classes('w-full h-96')
         
     def update_data(self, stream_id: str, viewers: int, timestamp: datetime):
         """Actualiza los datos del gráfico con nuevos valores."""
@@ -42,6 +46,9 @@ class StreamGraph:
         
     def _update_plot(self):
         """Actualiza el gráfico con los datos más recientes."""
+        if self.plot is None:
+            return
+            
         self.fig.data = []  # Limpiar datos existentes
         
         for stream_id, points in self.data.items():
