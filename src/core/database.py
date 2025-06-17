@@ -27,7 +27,15 @@ class Database:
                 cls.client = AsyncIOMotorClient(
                     mongo_url,
                     tls=True,
-                    tlsCAFile=certifi.where()
+                    tlsCAFile=certifi.where(),
+                    tlsAllowInvalidCertificates=True,
+                    serverSelectionTimeoutMS=5000,
+                    connectTimeoutMS=5000,
+                    socketTimeoutMS=5000,
+                    maxPoolSize=50,
+                    minPoolSize=10,
+                    maxIdleTimeMS=30000,
+                    waitQueueTimeoutMS=5000
                 )
                 
                 # Verificar la conexión
