@@ -1,6 +1,6 @@
 from nicegui import ui # type: ignore
 from ..core.logger import logger
-from ..core.database import get_db
+from ..core.database import Database
 from ..services.stream_service import StreamService
 from .components.stream_graph import StreamGraph
 import asyncio
@@ -20,8 +20,7 @@ class StreamViewerApp:
     
     def __init__(self):
         """Inicializa la aplicación."""
-        self.db = next(get_db())
-        self.stream_service = StreamService(self.db)
+        self.stream_service = StreamService()
         self.streams = []
         self.update_timer = None
         self.stream_graph = StreamGraph()
