@@ -30,7 +30,6 @@ class Database:
                     tlsCAFile=certifi.where(),
                     serverSelectionTimeoutMS=20000,
                     tlsAllowInvalidCertificates=False,  # No permitir certificados inválidos
-                    ssl_cert_reqs=ssl.CERT_REQUIRED,
                     ssl=True
                 )
                 
