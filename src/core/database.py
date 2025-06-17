@@ -26,12 +26,8 @@ class Database:
                 # Configurar el cliente con SSL y certificados
                 cls.client = AsyncIOMotorClient(
                     mongo_url,
-                    directConnection=True,
                     tls=True,
-                    tlsCAFile=certifi.where(),
-                    serverSelectionTimeoutMS=30000,
-                    connectTimeoutMS=30000,
-                    socketTimeoutMS=30000
+                    tlsCAFile=certifi.where()
                 )
                 
                 # Verificar la conexión
