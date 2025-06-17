@@ -23,8 +23,14 @@ class StreamService:
         """Inicializa el servicio de streams."""
         self.youtube_client = YouTubeClient()
         self.security_manager = security_manager
-        self.db = Database.db
         self._loop = None
+        self._db = None
+
+    async def _ensure_db(self):
+        """Asegura que la conexión a la base de datos esté establecida."""
+        if self._db is None:
+            await Database.connect_to_database()
+            self._db = Database.get_database()
 
     def _get_loop(self):
         """Obtiene o crea un bucle de eventos."""
@@ -35,7 +41,7 @@ class StreamService:
             asyncio.set_event_loop(loop)
         return loop
 
-    def get_all_streams(self) -> List[Stream]:
+    async def get_all_streams(self) -> List[Stream]:
         """
         Obtiene todos los streams activos.
         
@@ -43,12 +49,12 @@ class StreamService:
             List[Stream]: Lista de streams activos
         """
         try:
-            loop = self._get_loop()
-            cursor = self.db.streams.find()
+            await self._ensure_db()
+            cursor = self._db.streams.find()
             streams = []
             
             # Convertir el cursor a una lista de documentos
-            docs = loop.run_until_complete(cursor.to_list(length=None))
+            docs = await cursor.to_list(length=None)
             
             # Convertir los documentos a objetos Stream
             for doc in docs:
@@ -59,7 +65,7 @@ class StreamService:
             logger.error(f"Error al obtener streams: {str(e)}")
             return []
 
-    def get_stream_details(self, video_id: str) -> Optional[Stream]:
+    async def get_stream_details(self, video_id: str) -> Optional[Stream]:
         """
         Obtiene los detalles de un stream específico.
         
@@ -75,11 +81,8 @@ class StreamService:
                 logger.warning(f"Intento de obtener detalles de stream con ID inválido: {video_id}")
                 return None
             
-            # Ejecutar la operación asíncrona en un bucle de eventos
-            loop = self._get_loop()
-            stream_data = loop.run_until_complete(
-                self.db.streams.find_one({"video_id": video_id})
-            )
+            await self._ensure_db()
+            stream_data = await self._db.streams.find_one({"video_id": video_id})
             
             if stream_data:
                 return Stream(**stream_data)
@@ -90,7 +93,7 @@ class StreamService:
 
     @require_api_key
     @rate_limit
-    def add_stream(self, video_id: str) -> Optional[Stream]:
+    async def add_stream(self, video_id: str) -> Optional[Stream]:
         """
         Agrega un nuevo stream para monitorear.
         
@@ -107,7 +110,7 @@ class StreamService:
                 return None
             
             # Verificar si el stream ya existe
-            existing_stream = self.get_stream_details(video_id)
+            existing_stream = await self.get_stream_details(video_id)
             if existing_stream:
                 logger.warning(f"El stream {video_id} ya está siendo monitoreado")
                 return existing_stream
@@ -128,10 +131,8 @@ class StreamService:
             )
             
             # Guardar el stream
-            loop = self._get_loop()
-            result = loop.run_until_complete(
-                self.db.streams.insert_one(stream.model_dump(by_alias=True))
-            )
+            await self._ensure_db()
+            result = await self._db.streams.insert_one(stream.model_dump(by_alias=True))
             stream.id = result.inserted_id
             return stream
             
@@ -139,13 +140,11 @@ class StreamService:
             logger.error(f"Error al agregar stream {video_id}: {str(e)}")
             return None
 
-    def remove_stream(self, video_id: str) -> bool:
+    async def remove_stream(self, video_id: str) -> bool:
         """Elimina un stream del monitoreo"""
         try:
-            loop = self._get_loop()
-            result = loop.run_until_complete(
-                self.db.streams.delete_one({"video_id": video_id})
-            )
+            await self._ensure_db()
+            result = await self._db.streams.delete_one({"video_id": video_id})
             return result.deleted_count > 0
         except Exception as e:
             logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
@@ -153,7 +152,7 @@ class StreamService:
 
     @require_api_key
     @rate_limit
-    def update_stream_metrics(self, video_id: str) -> Optional[Stream]:
+    async def update_stream_metrics(self, video_id: str) -> Optional[Stream]:
         """
         Actualiza las métricas de un stream.
         
@@ -170,7 +169,7 @@ class StreamService:
                 return None
             
             # Obtener stream actual
-            stream = self.get_stream_details(video_id)
+            stream = await self.get_stream_details(video_id)
             if not stream:
                 logger.warning(f"Stream {video_id} no encontrado")
                 return None
@@ -186,12 +185,10 @@ class StreamService:
             stream.last_updated = datetime.now()
             
             # Guardar cambios
-            loop = self._get_loop()
-            loop.run_until_complete(
-                self.db.streams.update_one(
-                    {"video_id": video_id},
-                    {"$set": stream.model_dump(by_alias=True)}
-                )
+            await self._ensure_db()
+            await self._db.streams.update_one(
+                {"video_id": video_id},
+                {"$set": stream.model_dump(by_alias=True)}
             )
             
             return stream
@@ -200,7 +197,7 @@ class StreamService:
             logger.error(f"Error al actualizar métricas del stream {video_id}: {str(e)}")
             return None
 
-    def get_stream_metrics(self, video_id: str) -> Optional[Dict]:
+    async def get_stream_metrics(self, video_id: str) -> Optional[Dict]:
         """
         Obtiene las métricas actuales de un stream.
         
@@ -228,10 +225,8 @@ class StreamService:
             )
             
             # Guardar métricas
-            loop = self._get_loop()
-            loop.run_until_complete(
-                self.db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
-            )
+            await self._ensure_db()
+            await self._db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
             
             return {
                 'current_viewers': metrics.concurrent_viewers,
@@ -258,7 +253,7 @@ class StreamService:
             bool: True si se eliminó correctamente, False en caso contrario
         """
         try:
-            result = self.db.streams.delete_one({"video_id": video_id})
+            result = self._db.streams.delete_one({"video_id": video_id})
             return result.deleted_count > 0
         except Exception as e:
             logger.error(f"Error al eliminar stream {video_id}: {str(e)}")

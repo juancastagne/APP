@@ -1,5 +1,4 @@
 from motor.motor_asyncio import AsyncIOMotorClient # type: ignore
-from pymongo import MongoClient # type: ignore
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -15,11 +14,17 @@ class Database:
     @classmethod
     async def connect_to_database(cls):
         """Conecta a la base de datos MongoDB."""
-        if cls.client is None:
-            mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-            cls.client = AsyncIOMotorClient(mongo_url)
-            cls.db = cls.client.stream_views
-            print("Conectado a MongoDB!")
+        try:
+            if cls.client is None:
+                mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+                cls.client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+                # Verificar la conexión
+                await cls.client.admin.command('ping')
+                cls.db = cls.client.stream_views
+                logger.info("Conectado a MongoDB!")
+        except Exception as e:
+            logger.error(f"Error al conectar con MongoDB: {str(e)}")
+            raise
 
     @classmethod
     async def close_database_connection(cls):
@@ -27,36 +32,24 @@ class Database:
         if cls.client is not None:
             cls.client.close()
             cls.client = None
-            print("Conexión a MongoDB cerrada!")
+            logger.info("Conexión a MongoDB cerrada!")
 
     @classmethod
     def get_database(cls):
         """Retorna la instancia de la base de datos."""
+        if cls.db is None:
+            raise RuntimeError("La base de datos no está inicializada. Llame a connect_to_database primero.")
         return cls.db
 
 # Obtener la URL de MongoDB desde las variables de entorno
 MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://localhost:27017')
 
-# Cliente síncrono para operaciones que no requieren async
-client = MongoClient(MONGODB_URL)
-db = client.stream_views
-
-# Cliente asíncrono para operaciones que requieren async
-async_client = AsyncIOMotorClient(MONGODB_URL)
-async_db = async_client.stream_views
-
-def get_db():
+async def get_db():
     """Obtiene la instancia de la base de datos."""
     try:
-        yield db
+        if Database.db is None:
+            await Database.connect_to_database()
+        return Database.db
     except Exception as e:
         logger.error(f"Error al conectar con la base de datos: {str(e)}")
-        raise
-
-async def get_async_db():
-    """Obtiene la instancia asíncrona de la base de datos."""
-    try:
-        yield async_db
-    except Exception as e:
-        logger.error(f"Error al conectar con la base de datos asíncrona: {str(e)}")
         raise 
