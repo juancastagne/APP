@@ -28,7 +28,7 @@ def main():
             return
         
         # Inicializar la base de datos
-        Database.init_db()
+        Database.connect_to_database()
         logger.info("Base de datos inicializada correctamente")
         
         # Crear la aplicación
@@ -41,6 +41,9 @@ def main():
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {str(e)}")
         raise
+    finally:
+        # Cerrar la conexión a la base de datos
+        Database.close_database_connection()
 
 # Ejecutar main() directamente
 if __name__ == "__main__":
