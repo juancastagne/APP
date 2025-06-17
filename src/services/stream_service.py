@@ -7,6 +7,10 @@ from src.core.logger import logger
 from src.core.database import Database
 from bson import ObjectId
 import asyncio
+import nest_asyncio
+
+# Aplicar parche para permitir anidar bucles de eventos
+nest_asyncio.apply()
 
 class StreamService:
     """
@@ -20,6 +24,16 @@ class StreamService:
         self.youtube_client = YouTubeClient()
         self.security_manager = security_manager
         self.db = Database.db
+        self._loop = None
+
+    def _get_loop(self):
+        """Obtiene o crea un bucle de eventos."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop
 
     def get_all_streams(self) -> List[Stream]:
         """
@@ -29,8 +43,7 @@ class StreamService:
             List[Stream]: Lista de streams activos
         """
         try:
-            # Ejecutar la operación asíncrona en un bucle de eventos
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             cursor = self.db.streams.find()
             streams = []
             
@@ -63,7 +76,7 @@ class StreamService:
                 return None
             
             # Ejecutar la operación asíncrona en un bucle de eventos
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             stream_data = loop.run_until_complete(
                 self.db.streams.find_one({"video_id": video_id})
             )
@@ -115,7 +128,7 @@ class StreamService:
             )
             
             # Guardar el stream
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             result = loop.run_until_complete(
                 self.db.streams.insert_one(stream.model_dump(by_alias=True))
             )
@@ -129,7 +142,7 @@ class StreamService:
     def remove_stream(self, video_id: str) -> bool:
         """Elimina un stream del monitoreo"""
         try:
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             result = loop.run_until_complete(
                 self.db.streams.delete_one({"video_id": video_id})
             )
@@ -173,7 +186,7 @@ class StreamService:
             stream.last_updated = datetime.now()
             
             # Guardar cambios
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             loop.run_until_complete(
                 self.db.streams.update_one(
                     {"video_id": video_id},
@@ -215,7 +228,7 @@ class StreamService:
             )
             
             # Guardar métricas
-            loop = asyncio.get_event_loop()
+            loop = self._get_loop()
             loop.run_until_complete(
                 self.db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
             )
