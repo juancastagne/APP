@@ -3,6 +3,7 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 from ..core.logger import logger
+import certifi
 
 # Cargar variables de entorno
 load_dotenv()
@@ -21,7 +22,15 @@ class Database:
                 if not mongo_url:
                     raise ValueError("MONGODB_URI no está configurada en las variables de entorno")
                 
-                cls.client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+                # Configurar el cliente con SSL y certificados
+                cls.client = AsyncIOMotorClient(
+                    mongo_url,
+                    tls=True,
+                    tlsCAFile=certifi.where(),
+                    serverSelectionTimeoutMS=5000,
+                    ssl_cert_reqs='CERT_NONE'  # Deshabilitar verificación de certificados
+                )
+                
                 # Verificar la conexión
                 await cls.client.admin.command('ping')
                 cls.db = cls.client.stream_views
