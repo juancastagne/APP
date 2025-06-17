@@ -1,30 +1,16 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import BaseModel, Field, GetJsonSchemaHandler
+from typing import Optional, Any, Annotated
+from pydantic import BaseModel, Field, GetJsonSchemaHandler, BeforeValidator
 from bson import ObjectId
 
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+def validate_object_id(v: Any) -> ObjectId:
+    if isinstance(v, ObjectId):
+        return v
+    if not ObjectId.is_valid(v):
+        raise ValueError("Invalid ObjectId")
+    return ObjectId(v)
 
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-
-    @classmethod
-    def __get_pydantic_json_schema__(cls, _schema_generator: GetJsonSchemaHandler) -> dict[str, Any]:
-        return {"type": "string"}
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: Any) -> dict[str, Any]:
-        return {
-            "type": "string",
-            "description": "ObjectId",
-            "custom_validator": lambda x: cls.validate(x)
-        }
+PyObjectId = Annotated[ObjectId, BeforeValidator(validate_object_id)]
 
 class StreamMetrics(BaseModel):
     """Modelo para las métricas de un stream."""
