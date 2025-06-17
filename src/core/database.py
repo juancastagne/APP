@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from ..core.logger import logger
 import certifi
+import ssl
 
 # Cargar variables de entorno
 load_dotenv()
@@ -28,7 +29,7 @@ class Database:
                     tls=True,
                     tlsCAFile=certifi.where(),
                     serverSelectionTimeoutMS=5000,
-                    ssl_cert_reqs='CERT_NONE'  # Deshabilitar verificación de certificados
+                    tlsAllowInvalidCertificates=True  # Permitir certificados inválidos
                 )
                 
                 # Verificar la conexión
