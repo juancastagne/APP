@@ -28,9 +28,11 @@ class Database:
                     mongo_url,
                     tls=True,
                     tlsCAFile=certifi.where(),
-                    serverSelectionTimeoutMS=20000,
-                    tlsAllowInvalidCertificates=False,  # No permitir certificados inválidos
-                    ssl=True
+                    serverSelectionTimeoutMS=30000,
+                    tlsAllowInvalidCertificates=True,  # Permitir certificados inválidos temporalmente
+                    ssl=True,
+                    retryWrites=True,
+                    w='majority'
                 )
                 
                 # Verificar la conexión
