@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Optional, Any
+from pydantic import BaseModel, Field, GetJsonSchemaHandler
 from bson import ObjectId
 
 class PyObjectId(ObjectId):
@@ -15,8 +15,16 @@ class PyObjectId(ObjectId):
         return ObjectId(v)
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(cls, _schema_generator: GetJsonSchemaHandler) -> dict[str, Any]:
+        return {"type": "string"}
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: Any) -> dict[str, Any]:
+        return {
+            "type": "string",
+            "description": "ObjectId",
+            "custom_validator": lambda x: cls.validate(x)
+        }
 
 class StreamMetrics(BaseModel):
     """Modelo para las métricas de un stream."""
@@ -30,9 +38,10 @@ class StreamMetrics(BaseModel):
     subscriber_count: int
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    class Config:
-        json_encoders = {ObjectId: str}
-        allow_population_by_field_name = True
+    model_config = {
+        "json_encoders": {ObjectId: str},
+        "populate_by_name": True
+    }
 
 class Stream(BaseModel):
     """Modelo para un stream de YouTube."""
@@ -46,6 +55,7 @@ class Stream(BaseModel):
     last_updated: datetime = Field(default_factory=datetime.now)
     created_at: datetime = Field(default_factory=datetime.now)
 
-    class Config:
-        json_encoders = {ObjectId: str}
-        allow_population_by_field_name = True 
+    model_config = {
+        "json_encoders": {ObjectId: str},
+        "populate_by_name": True
+    } 
