@@ -81,7 +81,7 @@ class StreamViewerApp:
         
         dialog.open()
     
-    def add_stream(self, video_id: str, dialog):
+    async def add_stream(self, video_id: str, dialog):
         """Agrega un nuevo stream para monitorear."""
         try:
             if not video_id:
@@ -97,12 +97,12 @@ class StreamViewerApp:
                 return
             
             # Intentar agregar el stream
-            stream = self.stream_service.add_stream(video_id)
+            stream = await self.stream_service.add_stream(video_id)
             
             if stream:
                 ui.notify('Stream agregado correctamente', type='positive')
                 dialog.close()
-                self.load_streams()  # Recargar la lista de streams
+                await self.load_streams()  # Recargar la lista de streams
             else:
                 ui.notify('No se pudo agregar el stream. Verifica el ID y que el video esté en vivo.', type='negative')
                 
@@ -110,15 +110,15 @@ class StreamViewerApp:
             logger.error(f"Error al agregar stream: {str(e)}")
             ui.notify('Error al agregar el stream. Por favor intenta nuevamente.', type='negative')
     
-    def load_streams(self):
+    async def load_streams(self):
         """Carga y actualiza la lista de streams."""
         try:
             # Obtener streams de la base de datos
-            self.streams = self.stream_service.get_all_streams()
+            self.streams = await self.stream_service.get_all_streams()
             
             # Actualizar métricas de cada stream
             for stream in self.streams:
-                updated_stream = self.stream_service.update_stream_metrics(stream.video_id)
+                updated_stream = await self.stream_service.update_stream_metrics(stream.video_id)
                 if updated_stream:
                     stream.current_viewers = updated_stream.current_viewers
                     stream.last_updated = updated_stream.last_updated
@@ -188,25 +188,25 @@ class StreamViewerApp:
                                 on_click=lambda s=stream: self.delete_stream(s.video_id)
                             ).props('flat').classes('text-red-500')
     
-    def refresh_stream(self, video_id: str):
+    async def refresh_stream(self, video_id: str):
         """Actualiza manualmente un stream específico."""
         try:
-            stream = self.stream_service.update_stream_metrics(video_id)
+            stream = await self.stream_service.update_stream_metrics(video_id)
             if stream:
                 ui.notify('Stream actualizado correctamente', type='positive')
-                self.load_streams()
+                await self.load_streams()
             else:
                 ui.notify('No se pudo actualizar el stream', type='negative')
         except Exception as e:
             logger.error(f"Error al actualizar stream: {str(e)}")
             ui.notify('Error al actualizar el stream', type='negative')
     
-    def delete_stream(self, video_id: str):
+    async def delete_stream(self, video_id: str):
         """Elimina un stream del monitoreo."""
         try:
-            if self.stream_service.delete_stream(video_id):
+            if await self.stream_service.delete_stream(video_id):
                 ui.notify('Stream eliminado correctamente', type='positive')
-                self.load_streams()
+                await self.load_streams()
             else:
                 ui.notify('No se pudo eliminar el stream', type='negative')
         except Exception as e:
