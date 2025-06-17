@@ -6,6 +6,7 @@ from src.core.security import security_manager, require_api_key, rate_limit
 from src.core.logger import logger
 from src.core.database import Database
 from bson import ObjectId
+import asyncio
 
 class StreamService:
     """
@@ -19,6 +20,60 @@ class StreamService:
         self.youtube_client = YouTubeClient()
         self.security_manager = security_manager
         self.db = Database.db
+
+    def get_all_streams(self) -> List[Stream]:
+        """
+        Obtiene todos los streams activos.
+        
+        Returns:
+            List[Stream]: Lista de streams activos
+        """
+        try:
+            # Ejecutar la operación asíncrona en un bucle de eventos
+            loop = asyncio.get_event_loop()
+            cursor = self.db.streams.find()
+            streams = []
+            
+            # Convertir el cursor a una lista de documentos
+            docs = loop.run_until_complete(cursor.to_list(length=None))
+            
+            # Convertir los documentos a objetos Stream
+            for doc in docs:
+                streams.append(Stream(**doc))
+            
+            return streams
+        except Exception as e:
+            logger.error(f"Error al obtener streams: {str(e)}")
+            return []
+
+    def get_stream_details(self, video_id: str) -> Optional[Stream]:
+        """
+        Obtiene los detalles de un stream específico.
+        
+        Args:
+            video_id (str): ID del video de YouTube
+            
+        Returns:
+            Optional[Stream]: Stream encontrado o None si no existe
+        """
+        try:
+            # Validar el ID del video
+            if not self.security_manager.validate_video_id(video_id):
+                logger.warning(f"Intento de obtener detalles de stream con ID inválido: {video_id}")
+                return None
+            
+            # Ejecutar la operación asíncrona en un bucle de eventos
+            loop = asyncio.get_event_loop()
+            stream_data = loop.run_until_complete(
+                self.db.streams.find_one({"video_id": video_id})
+            )
+            
+            if stream_data:
+                return Stream(**stream_data)
+            return None
+        except Exception as e:
+            logger.error(f"Error al obtener detalles del stream {video_id}: {str(e)}")
+            return None
 
     @require_api_key
     @rate_limit
@@ -39,10 +94,10 @@ class StreamService:
                 return None
             
             # Verificar si el stream ya existe
-            existing_stream = self.db.streams.find_one({"video_id": video_id})
+            existing_stream = self.get_stream_details(video_id)
             if existing_stream:
                 logger.warning(f"El stream {video_id} ya está siendo monitoreado")
-                return Stream(**existing_stream)
+                return existing_stream
             
             # Obtener detalles del video
             video_details = self.youtube_client.get_stream_details_old(video_id)
@@ -60,7 +115,10 @@ class StreamService:
             )
             
             # Guardar el stream
-            result = self.db.streams.insert_one(stream.model_dump(by_alias=True))
+            loop = asyncio.get_event_loop()
+            result = loop.run_until_complete(
+                self.db.streams.insert_one(stream.model_dump(by_alias=True))
+            )
             stream.id = result.inserted_id
             return stream
             
@@ -71,7 +129,10 @@ class StreamService:
     def remove_stream(self, video_id: str) -> bool:
         """Elimina un stream del monitoreo"""
         try:
-            result = self.db.streams.delete_one({"video_id": video_id})
+            loop = asyncio.get_event_loop()
+            result = loop.run_until_complete(
+                self.db.streams.delete_one({"video_id": video_id})
+            )
             return result.deleted_count > 0
         except Exception as e:
             logger.error(f"Error al eliminar stream {video_id}: {str(e)}")
@@ -96,12 +157,10 @@ class StreamService:
                 return None
             
             # Obtener stream actual
-            stream_data = self.db.streams.find_one({"video_id": video_id})
-            if not stream_data:
+            stream = self.get_stream_details(video_id)
+            if not stream:
                 logger.warning(f"Stream {video_id} no encontrado")
                 return None
-            
-            stream = Stream(**stream_data)
             
             # Obtener métricas actualizadas
             video_details = self.youtube_client.get_stream_details_old(video_id)
@@ -114,39 +173,18 @@ class StreamService:
             stream.last_updated = datetime.now()
             
             # Guardar cambios
-            self.db.streams.update_one(
-                {"video_id": video_id},
-                {"$set": stream.model_dump(by_alias=True)}
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                self.db.streams.update_one(
+                    {"video_id": video_id},
+                    {"$set": stream.model_dump(by_alias=True)}
+                )
             )
             
             return stream
             
         except Exception as e:
             logger.error(f"Error al actualizar métricas del stream {video_id}: {str(e)}")
-            return None
-
-    def get_stream_details(self, video_id: str) -> Optional[Stream]:
-        """
-        Obtiene los detalles de un stream específico.
-        
-        Args:
-            video_id (str): ID del video de YouTube
-            
-        Returns:
-            Optional[Stream]: Stream encontrado o None si no existe
-        """
-        try:
-            # Validar el ID del video
-            if not self.security_manager.validate_video_id(video_id):
-                logger.warning(f"Intento de obtener detalles de stream con ID inválido: {video_id}")
-                return None
-            
-            stream_data = self.db.streams.find_one({"video_id": video_id})
-            if stream_data:
-                return Stream(**stream_data)
-            return None
-        except Exception as e:
-            logger.error(f"Error al obtener detalles del stream {video_id}: {str(e)}")
             return None
 
     def get_stream_metrics(self, video_id: str) -> Optional[Dict]:
@@ -177,7 +215,10 @@ class StreamService:
             )
             
             # Guardar métricas
-            self.db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                self.db.stream_metrics.insert_one(metrics.model_dump(by_alias=True))
+            )
             
             return {
                 'current_viewers': metrics.concurrent_viewers,
@@ -192,23 +233,6 @@ class StreamService:
         except Exception as e:
             logger.error(f"Error al obtener métricas para stream {video_id}: {str(e)}")
             return None
-
-    def get_all_streams(self) -> List[Stream]:
-        """
-        Obtiene todos los streams activos.
-        
-        Returns:
-            List[Stream]: Lista de streams activos
-        """
-        try:
-            cursor = self.db.streams.find()
-            streams = []
-            for stream_data in cursor:
-                streams.append(Stream(**stream_data))
-            return streams
-        except Exception as e:
-            logger.error(f"Error al obtener streams: {str(e)}")
-            return []
 
     def delete_stream(self, video_id: str) -> bool:
         """
